@@ -6,11 +6,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
 
--- import qualified System.Random.MWC as MWC-- ( create, uniformVector, asGenST )
-import System.Random -- (mkStdGen )
+import System.Random
 import Data.Random
 import Data.RVar
--- import System.Random.Mersenne.Pure64
 import Data.Random.Source.PureMT
 import Data.Random.Source.MWC
 
@@ -21,8 +19,6 @@ import Data.Array.Repa hiding ( map )
 import Control.Monad.State
 
 import Data.List ( foldl' )
-
--- import Control.Monad.ST.Safe
 
 import Control.Monad.Trans as MTL
 
@@ -64,6 +60,8 @@ tCrit = 2.0 / log (1.0 + sqrt 2.0) - 0.1
 
 h :: Double
 h = 0.0
+
+-- Periodic boundary conditions
 
 rs = foldl' (+) 0 $
      map fromIntegral $
@@ -114,3 +112,4 @@ main = print $
 -- real	0m18.462s
 -- user	0m18.220s
 -- sys	0m0.238s
+
