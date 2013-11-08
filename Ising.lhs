@@ -63,6 +63,9 @@ The letter Z stands for the German word Zustandssumme, "sum over states"
 
 > import Control.Monad
 > import Control.Monad.ST.Lazy
+> 
+> import Control.Applicative
+> 
 > import Data.List
 > import Data.Int
 > import Data.Random
@@ -71,6 +74,9 @@ The letter Z stands for the German word Zustandssumme, "sum over states"
 > import Text.PrettyPrint
 > import Text.PrettyPrint.HughesPJClass
 
+> instance (Source t a, Pretty a) => Pretty (Array t DIM0 a) where
+>   pPrint a = pPrint (a!Z)
+>   
 > instance (Source t a, Pretty a) => Pretty (Array t DIM1 a) where
 >   pPrint a = brackets $ hcat $ punctuate (comma <> space) elems
 >     where
@@ -88,15 +94,40 @@ test our solution against the analytic solution for the one
 dimensional case.
 
 > gridSizeR, gridSizeC :: Int
-> gridSizeR = 7
-> gridSizeC = 7
+> gridSizeR = 10 -- 7
+> gridSizeC = 10 -- 7
 
+> initGrid :: Array U DIM2 Double
 > initGrid = fromListUnboxed (Z :. gridSizeR :. gridSizeC :: DIM2) xs
 >   where
 >     xs = map fromIntegral $
 >          evalState (replicateM (gridSizeR * gridSizeC) (sample (uniform (0 :: Int8) 1)))
 >                    (pureMT 1)
 
+Start energy =  [[ 1 -1 -1 -1  1 -1  1  1  1  1]
+ [-1 -1  1  1  1 -1  1  1  1  1]
+ [ 1  1  1 -1 -1 -1 -1 -1 -1 -1]
+ [-1  1  1 -1 -1 -1 -1  1 -1  1]
+ [-1 -1  1 -1 -1 -1 -1 -1 -1  1]
+ [-1 -1  1  1  1 -1  1 -1 -1  1]
+ [-1 -1  1 -1 -1 -1  1  1 -1  1]
+ [ 1  1 -1 -1 -1  1 -1 -1  1  1]
+ [ 1 -1 -1 -1 -1  1  1 -1  1  1]
+ [ 1 -1 -1 -1  1  1  1  1 -1 -1]] -36.0
+
+> initGrid' :: Array U DIM2 Double
+> initGrid' = fromListUnboxed (Z :. gridSizeR :. gridSizeC :: DIM2) $
+>             concat
+>             [ [ 1, -1, -1, -1,  1, -1,  1,  1,  1,  1]
+>             , [-1, -1,  1,  1,  1, -1,  1,  1,  1,  1]
+>             , [ 1,  1,  1, -1, -1, -1, -1, -1, -1, -1]
+>             , [-1,  1,  1, -1, -1, -1, -1,  1, -1,  1]
+>             , [-1, -1,  1, -1, -1, -1, -1, -1, -1,  1]
+>             , [-1, -1,  1,  1,  1, -1,  1, -1, -1,  1]
+>             , [-1, -1,  1, -1, -1, -1,  1,  1, -1,  1]
+>             , [ 1,  1, -1, -1, -1,  1, -1, -1,  1,  1]
+>             , [ 1, -1, -1, -1, -1,  1,  1, -1,  1,  1]
+>             , [ 1, -1, -1, -1,  1,  1,  1,  1, -1, -1]]
 
 > tCrit :: Double
 > tCrit = 2.0 / log (1.0 + sqrt 2.0) - 0.1
@@ -104,66 +135,35 @@ dimensional case.
 > h :: Double
 > h = 0.0
 
-FIXME: Please don't use head!
+
+Calculate magnetization:
 
 > magnetization :: (Source r a, Elt a, Unbox a, Monad m, Num a) =>
 >                  Array r DIM2 a -> m a
-> magnetization a = do
->   sumP a >>= sumP >>= return . head . toList
+> magnetization a =
+>   sumP a >>= sumP >>= return . (!Z)
 
--- Periodic boundary conditions
+FIXME: Check that we are really summing the columns first.
 
-    #Calculate initial magnetization:
-    M = spin_matrix.sum()
+Calculate energy:
 
+> energy :: (Source r a, Elt a, Unbox a, Monad m, Num a, Fractional a) =>
+>           Array r DIM2 a -> m a
+> energy a = do
+>   rSum <- sumP $ energyAux a
+>   cSum <- sumP rSum
+>   return (cSum!Z / 2)
+>     where
+>       energyAux a = traverse a id f
+>         where
+>           (Z :. nRows :. nCols) = extent a
+>           f get (Z :. ir :. ic) = current * neighbours
+>             where
+>               current = get (Z :. ir :. ic)
+>               neighbours = west + east + south + north
+>               west       = get (Z :. ir                   :. (ic - 1) `mod` nCols)
+>               east       = get (Z :. ir                   :. (ic + 1) `mod` nCols)
+>               south      = get (Z :. (ir - 1) `mod` nRows :. ic)
+>               north      = get (Z :. (ir + 1) `mod` nRows :. ic)
 
-> rs = foldl' (+) 0 $
->      map fromIntegral $
->      fst $
->      runState (replicateM (10^6) (sample (uniform (0 :: Int8) 1))) (pureMT 1)
-
-> rwalkState :: RVarT (State Double) Double
-> rwalkState = do
->      prev <- MTL.lift get
->      change  <- rvarT StdNormal
->      
->      let new = prev + change
->      MTL.lift (put new)
->      return new
-
-> rwalk :: Int -> Double -> StdGen -> ([Double], StdGen)
-> rwalk count start gen = 
->   flip evalState start .
->   flip runStateT gen .
->   sampleRVarTWith MTL.lift $
->   replicateM count rwalkState
-
-> foo = runState (replicateM 2 (sampleRVar (uniform 6 8))) (mkStdGen 1)
-
--- Don't do this. It is slow in and has a space leak in GHCi but not
--- with -O2
-
--- main = print $ sum $ map fromIntegral $ runST $ do
---     mwc <- strictToLazyST MWC.create
---     replicateM (10^8) (strictToLazyST (sampleFrom mwc (uniform (0 :: Int8) 1)))
-
--- ~/Dropbox/Private/Ising $ time ./Ising
--- 50000208
-
--- real	1m40.204s
--- user	1m39.398s
--- sys	0m0.802s
-
-> main = print $
->        foldl' (+) 0 $
->        map fromIntegral $
->        fst $
->        runState (replicateM (10^8) (sample (uniform (0 :: Int8) 1))) (pureMT 1)
-
--- ~/Dropbox/Private/Ising $ time ./Ising
--- 50008163
-
--- real	0m18.462s
--- user	0m18.220s
--- sys	0m0.238s
 
