@@ -41,35 +41,52 @@ The letter Z stands for the German word Zustandssumme, "sum over states"
 > {-# LANGUAGE NoMonomorphismRestriction #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE FlexibleInstances #-}
+> {-# LANGUAGE FlexibleContexts #-}
 
-> import System.Random
+> {-# OPTIONS_GHC -Wall                      #-}
+> {-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
+> {-# OPTIONS_GHC -fno-warn-type-defaults    #-}
+> {-# OPTIONS_GHC -fno-warn-unused-do-bind   #-}
+> {-# OPTIONS_GHC -fno-warn-missing-methods  #-}
+> {-# OPTIONS_GHC -fno-warn-orphans          #-}
+
+FIXME: Do we really need *all* these exports?
+
+> module Ising (
+>     updateOnce
+>   , expDv
+>   , energy
+>   , magnetization
+>   , h
+>   , tCrit
+>   , initGrid
+>   , initGrid'
+>   ) where
+
+> -- import System.Random
 > import Data.Random
-> import Data.RVar
+> -- import Data.RVar
 > import Data.Random.Source.PureMT
-> import Data.Random.Source.MWC
-
+> -- import Data.Random.Source.MWC
+> 
 > import Data.Int
 
-> import Data.Array.Repa hiding ( map )
+> import Data.Array.Repa hiding ( map, zipWith )
 > import Data.Array.Repa.Eval
 > import Data.Vector.Unboxed.Base
 
+> import qualified Data.Vector as V
+
 > import Control.Monad.State
 
-> import Data.List ( foldl' )
+> -- import Data.List ( foldl' )
 
-> import Control.Monad.Trans as MTL
-
-
-> import Control.Monad
-> import Control.Monad.ST.Lazy
+> -- import Control.Monad
+> -- import Control.Monad.ST.Lazy
 > 
-> import Control.Applicative
-> 
-> import Data.List
-> import Data.Int
-> import Data.Random
-> import qualified System.Random.MWC as MWC
+> -- import Data.List
+> -- import Data.Random
+> -- import qualified System.Random.MWC as MWC
 
 > import Text.PrettyPrint
 > import Text.PrettyPrint.HughesPJClass
@@ -96,6 +113,9 @@ dimensional case.
 > gridSizeR, gridSizeC :: Int
 > gridSizeR = 10 -- 7
 > gridSizeC = 10 -- 7
+
+
+A warm start but we could try a cold start with all spins up.
 
 > initGrid :: Array U DIM2 Double
 > initGrid = fromListUnboxed (Z :. gridSizeR :. gridSizeC :: DIM2) xs
@@ -135,7 +155,6 @@ Start energy =  [[ 1 -1 -1 -1  1 -1  1  1  1  1]
 > h :: Double
 > h = 0.0
 
-
 Calculate magnetization:
 
 > magnetization :: (Source r a, Elt a, Unbox a, Monad m, Num a) =>
@@ -166,4 +185,23 @@ Calculate energy:
 >               south      = get (Z :. (ir - 1) `mod` nRows :. ic)
 >               north      = get (Z :. (ir + 1) `mod` nRows :. ic)
 
+> expDv :: Double -> V.Vector Double
+> expDv t = V.generate 9 f
+>   where
+>     f n | odd n = 0.0
+>     f n         = exp (((fromIntegral (8 - n)) - 4.0) * 2.0 / t)
 
+> updateOnce :: Source r a =>
+>               [Double] -> [(Int, Int)] -> Array r DIM2 a -> Array D DIM2 Double
+> updateOnce _rs _ijs a = traverse a id rutgers
+>   where
+>     (Z :. nRows :. nCols) = extent a
+>     rutgers get (Z :. ir :. ic) = undefined
+>       where
+>         _oc = get (Z :. ir                   :. ic)
+>         _w = get (Z :. ir                   :. (ic - 1) `mod` nCols)
+>         _e = get (Z :. ir                   :. (ic + 1) `mod` nCols)
+>         _s = get (Z :. (ir - 1) `mod` nRows :. ic)
+>         _n = get (Z :. (ir + 1) `mod` nRows :. ic)
+>     _cornell = undefined
+>     _norway  = undefined
