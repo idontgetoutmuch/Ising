@@ -53,7 +53,7 @@ The letter Z stands for the German word Zustandssumme, "sum over states"
 FIXME: Do we really need *all* these exports?
 
 > module Ising (
->     updateOnce
+>     singleUpdate
 >   , expDv
 >   , energy
 >   , magnetization
@@ -71,7 +71,8 @@ FIXME: Do we really need *all* these exports?
 > 
 > import Data.Int
 
-> import Data.Array.Repa hiding ( map, zipWith )
+> import Data.Array.Repa hiding ( map, zipWith, (++) )
+> import qualified Data.Array.Repa as R
 > import Data.Array.Repa.Eval
 > import Data.Vector.Unboxed.Base
 
@@ -79,7 +80,9 @@ FIXME: Do we really need *all* these exports?
 
 > import Control.Monad.State
 
-> -- import Data.List ( foldl' )
+> import Data.List ( foldl' )
+
+> import qualified Data.Vector.Mutable as M
 
 > -- import Control.Monad
 > -- import Control.Monad.ST.Lazy
@@ -90,6 +93,8 @@ FIXME: Do we really need *all* these exports?
 
 > import Text.PrettyPrint
 > import Text.PrettyPrint.HughesPJClass
+
+> import Debug.Trace
 
 > instance (Source t a, Pretty a) => Pretty (Array t DIM0 a) where
 >   pPrint a = pPrint (a!Z)
@@ -191,17 +196,37 @@ Calculate energy:
 >     f n | odd n = 0.0
 >     f n         = exp (((fromIntegral (8 - n)) - 4.0) * 2.0 / t)
 
-> updateOnce :: Source r a =>
->               [Double] -> [(Int, Int)] -> Array r DIM2 a -> Array D DIM2 Double
-> updateOnce _rs _ijs a = traverse a id rutgers
+> singleUpdate :: Double -> V.Vector Int -> (Int, Int, Double) -> V.Vector Int
+> singleUpdate t v (i, j, r) = trace (show c ++ " " ++ show d ++ " " ++
+>                                   show (4 + c * d) ++ " " ++ show p) $
+>                            if (fromIntegral (c * d)) > r
+>                            then V.modify (\v -> M.write v jc (-c)) v
+>                            else v
 >   where
->     (Z :. nRows :. nCols) = extent a
->     rutgers get (Z :. ir :. ic) = undefined
->       where
->         _oc = get (Z :. ir                   :. ic)
->         _w = get (Z :. ir                   :. (ic - 1) `mod` nCols)
->         _e = get (Z :. ir                   :. (ic + 1) `mod` nCols)
->         _s = get (Z :. (ir - 1) `mod` nRows :. ic)
->         _n = get (Z :. (ir + 1) `mod` nRows :. ic)
->     _cornell = undefined
->     _norway  = undefined
+>     p = (expDv t) V.! (4 + c * d)
+>     
+>     c = v V.! jc
+>     jc = gridSizeR * i + j
+> 
+>     d = n + e + s + w
+> 
+>     n = v V.! jn
+>     e = v V.! je
+>     s = v V.! js
+>     w = v V.! jw
+> 
+>     jn = gridSizeR * ((i + 1) `mod` gridSizeC) + j
+>     js = gridSizeR * ((i - 1) `mod` gridSizeC) + j
+>     je = gridSizeR * i + ((j + 1) `mod` gridSizeC)
+>     jw = gridSizeR * i + ((j - 1) `mod` gridSizeC)
+>
+> testData :: Int -> V.Vector (Int, Int, Double)
+> testData m =
+>   V.fromList $
+>   evalState (replicateM m x)
+>   (pureMT 1)
+>   where
+>     x = do r <- sample (uniform (0 :: Int)    (gridSizeR - 1))
+>            c <- sample (uniform (0 :: Int)    (gridSizeC - 1))
+>            v <- sample (uniform (0 :: Double)            1.0)
+>            return (r, c, v)
