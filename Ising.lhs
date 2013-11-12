@@ -61,6 +61,7 @@ FIXME: Do we really need *all* these exports?
 >   , tCrit
 >   , initGrid
 >   , initGrid'
+>   , main
 >   ) where
 
 > -- import System.Random
@@ -230,3 +231,9 @@ Calculate energy:
 >            c <- sample (uniform (0 :: Int)    (gridSizeC - 1))
 >            v <- sample (uniform (0 :: Double)            1.0)
 >            return (r, c, v)
+> 
+> initGridV = V.fromList $ map floor $ toList initGrid'
+>
+> test = V.foldl (singleUpdate 1.0) initGridV
+> 
+> main = print (test (testData 100000000))
