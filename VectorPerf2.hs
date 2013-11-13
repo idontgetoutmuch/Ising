@@ -18,6 +18,10 @@ import Diagrams.Prelude hiding ( sample )
 import Diagrams.Coordinates ( (&) )
 import Diagrams.Backend.Cairo.CmdLine
 
+import Test.HUnit
+import qualified Test.Tasty as T
+import Test.Tasty.HUnit
+
 data McState = McState { mcMagnetization :: !Double
                        , mcCount         :: !Int
                        , mcNumSamples    :: !Int
@@ -29,7 +33,10 @@ gridSize :: Int
 gridSize = 10
 
 measure :: Int
-measure = 100
+measure = 1 -- 100
+
+nitt :: Int
+nitt = 1000000
 
 tCrit :: Double
 tCrit = 2.0 / log (1.0 + sqrt 2.0) - 0.1
@@ -130,8 +137,8 @@ initGrid' = V.fromList xs
                    (pureMT 1)
 
 
-test :: Double -> V.Vector (Int, Int, Double) -> McState
-test t = V.foldl (singleUpdate (expDv t)) initState
+trial :: Double -> V.Vector (Int, Int, Double) -> McState
+trial t = V.foldl (singleUpdate (expDv t)) testInitState -- initState
 
 initState = McState { mcMagnetization = fromIntegral $
                                         magnetization initGrid'
@@ -140,15 +147,95 @@ initState = McState { mcMagnetization = fromIntegral $
                     , mcGrid = initGrid'
                     }
 
+testInitState = McState { mcMagnetization = fromIntegral $
+                                            magnetization testGrid
+                        , mcCount = 0
+                        , mcNumSamples = 0
+                        , mcGrid = testGrid
+                        }
+
+testGrid :: V.Vector Int
+testGrid = V.fromList $ concat $ initGridL
+  where
+    initGridL = [ [-1, -1,  1, -1, -1, -1, -1,  1, -1, -1]
+                , [ 1,  1, -1,  1, -1,  1,  1, -1,  1, -1]
+                , [ 1, -1, -1, -1, -1,  1, -1, -1, -1, -1]
+                , [-1, -1,  1, -1,  1, -1,  1,  1, -1,  1]
+                , [ 1,  1,  1, -1,  1, -1, -1,  1,  1,  1]
+                , [ 1, -1, -1,  1, -1, -1, -1, -1,  1,  1]
+                , [ 1,  1,  1, -1, -1,  1, -1, -1,  1, -1]
+                , [ 1, -1, -1, -1,  1,  1, -1, -1,  1, -1]
+                , [ 1, -1,  1, -1, -1, -1, -1,  1,  1, -1]
+                , [-1, -1,  1,  1, -1, -1,  1,  1, -1,  1]
+                ]
+
+testData2 :: V.Vector (Int, Int, Double)
+testData2 = V.fromList [ (7, 7, 0.133954208172)
+                       , (6, 8, 0.748777878277)
+                       ]
+
+expectedGrid :: V.Vector Int
+expectedGrid = V.fromList $ concat $ initGridL
+  where
+    initGridL = [ [-1, -1,  1, -1, -1, -1, -1,  1, -1, -1]
+                , [ 1,  1, -1,  1, -1,  1,  1, -1,  1, -1]
+                , [ 1, -1, -1, -1, -1,  1, -1, -1, -1, -1]
+                , [-1, -1,  1, -1,  1, -1,  1,  1, -1,  1]
+                , [ 1,  1,  1, -1,  1, -1, -1,  1,  1,  1]
+                , [ 1, -1, -1,  1, -1, -1, -1, -1,  1,  1]
+                , [ 1,  1,  1, -1, -1,  1, -1, -1, -1, -1]
+                , [ 1, -1, -1, -1,  1,  1, -1,  1,  1, -1]
+                , [ 1, -1,  1, -1, -1, -1, -1,  1,  1, -1]
+                , [-1, -1,  1,  1, -1, -1,  1,  1, -1,  1]
+                ]
+
+
+{-
+>>> [[-1 -1  1 -1 -1 -1 -1  1 -1 -1]
+ [ 1  1 -1  1 -1  1  1 -1  1 -1]
+ [ 1 -1 -1 -1 -1  1 -1 -1 -1 -1]
+ [-1 -1  1 -1  1 -1  1  1 -1  1]
+ [ 1  1  1 -1  1 -1 -1  1  1  1]
+ [ 1 -1 -1  1 -1 -1 -1 -1  1  1]
+ [ 1  1  1 -1 -1  1 -1 -1  1 -1]
+ [ 1 -1 -1 -1  1  1 -1 -1  1 -1]
+ [ 1 -1  1 -1 -1 -1 -1  1  1 -1]
+ [-1 -1  1  1 -1 -1  1  1 -1  1]]
+0
+7 7
+0.133954208172
+1
+6 8
+0.748777878277
+[[-1 -1  1 -1 -1 -1 -1  1 -1 -1]
+ [ 1  1 -1  1 -1  1  1 -1  1 -1]
+ [ 1 -1 -1 -1 -1  1 -1 -1 -1 -1]
+ [-1 -1  1 -1  1 -1  1  1 -1  1]
+ [ 1  1  1 -1  1 -1 -1  1  1  1]
+ [ 1 -1 -1  1 -1 -1 -1 -1  1  1]
+ [ 1  1  1 -1 -1  1 -1 -1 -1 -1]
+ [ 1 -1 -1 -1  1  1 -1  1  1 -1]
+ [ 1 -1  1 -1 -1 -1 -1  1  1 -1]
+ [-1 -1  1  1 -1 -1  1  1 -1  1]]
+4.0 -12.0 8.0
+-}
+
+foo :: Assertion
+foo = assertEqual "Test" "hello" "world"
+
 main :: IO ()
-main = do print initState
-          let newState = test 2.080 (testData 1000000)
+main = do print testInitState
+          let newState = trial 1.375 testData2 -- (testData nitt)
           print newState
           print (mcMagnetization newState / fromIntegral (mcNumSamples newState))
--- main = do let newGrid1 = test 1.0 (testData 1000000)
---               newGrid2 = test 2.0 (testData 1000000)
---               newGrid3 = test 3.0 (testData 1000000)
---               newGrid4 = test 4.0 (testData 1000000)
+          T.defaultMain $
+            testCase "Two steps" $
+            assertEqual "Test" (mcGrid newState) expectedGrid
+          
+-- main = do let newGrid1 = trial 1.0 (testData 1000000)
+--               newGrid2 = trial 2.0 (testData 1000000)
+--               newGrid3 = trial 3.0 (testData 1000000)
+--               newGrid4 = trial 4.0 (testData 1000000)
 --           defaultMain $ (chessBoard initGrid' # translate (0&0)) <>
 --                         (chessBoard (mcGrid newGrid1) # translate (12&0)) <>
 --                         (chessBoard (mcGrid newGrid2) # translate (24&0)) <>
