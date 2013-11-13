@@ -25,6 +25,7 @@ import Test.Tasty.HUnit
 import qualified Debug.Trace as D
 
 data McState = McState { mcMagnetization :: !Double
+                       , mcMAvg          :: !Double
                        , mcCount         :: !Int
                        , mcNumSamples    :: !Int
                        , mcGrid          :: !(V.Vector Int)
@@ -81,11 +82,12 @@ expDv t = V.generate 9 f
     f n         = exp (((fromIntegral (8 - n)) - 4.0) * 2.0 / t)
 
 singleUpdate :: Int -> V.Vector Double -> McState -> (Int, Int, Double) -> McState
-singleUpdate measure expDvT u (i, j, r) =
-  McState { mcMagnetization =
-               if (mcCount u) `mod` measure == 0
-               then newMag
-               else oldMag
+singleUpdate measure expDvT u (i, j, r) = -- D.trace (show $ mcMAvg u) $ 
+  McState { mcMagnetization = newMag
+          , mcMAvg =
+            if (mcCount u) `mod` measure == 0
+            then mcMAvg u + newMag
+            else mcMAvg u
           , mcCount = mcCount u + 1
           , mcNumSamples =
             if (mcCount u) `mod` measure == 0
@@ -153,20 +155,23 @@ trial' t = V.foldl (singleUpdate measure (expDv t)) trialInitState -- initState
 
 initState = McState { mcMagnetization = fromIntegral $
                                         magnetization initGrid'
+                    , mcMAvg = 0.0
                     , mcCount = 0
                     , mcNumSamples = 0
                     , mcGrid = initGrid'
                     }
 
 trialInitState = McState { mcMagnetization = fromIntegral $
-                                            magnetization trialGrid
-                        , mcCount = 0
-                        , mcNumSamples = 0
-                        , mcGrid = trialGrid
+                                             magnetization trialGrid
+                         , mcMAvg = 0.0
+                         , mcCount = 0
+                         , mcNumSamples = 0
+                         , mcGrid = trialGrid
                         }
 
 trialInitState225 = McState { mcMagnetization = fromIntegral $
                                                 magnetization trialGrid225
+                            , mcMAvg = 0.0
                             , mcCount = 0
                             , mcNumSamples = 0
                             , mcGrid = trialGrid225
@@ -250,69 +255,94 @@ expectedGrid225 = V.fromList $ concat $ initGridL
 expectedMagnetization225 :: Double
 expectedMagnetization225 = -14.0
 
-{-
->>> [[-1 -1  1 -1 -1 -1 -1  1 -1 -1]
- [ 1  1 -1  1 -1  1  1 -1  1 -1]
- [ 1 -1 -1 -1 -1  1 -1 -1 -1 -1]
- [-1 -1  1 -1  1 -1  1  1 -1  1]
- [ 1  1  1 -1  1 -1 -1  1  1  1]
- [ 1 -1 -1  1 -1 -1 -1 -1  1  1]
- [ 1  1  1 -1 -1  1 -1 -1  1 -1]
- [ 1 -1 -1 -1  1  1 -1 -1  1 -1]
- [ 1 -1  1 -1 -1 -1 -1  1  1 -1]
- [-1 -1  1  1 -1 -1  1  1 -1  1]]
-0
-7 7
-0.133954208172
-1
-6 8
-0.748777878277
-[[-1 -1  1 -1 -1 -1 -1  1 -1 -1]
- [ 1  1 -1  1 -1  1  1 -1  1 -1]
- [ 1 -1 -1 -1 -1  1 -1 -1 -1 -1]
- [-1 -1  1 -1  1 -1  1  1 -1  1]
- [ 1  1  1 -1  1 -1 -1  1  1  1]
- [ 1 -1 -1  1 -1 -1 -1 -1  1  1]
- [ 1  1  1 -1 -1  1 -1 -1 -1 -1]
- [ 1 -1 -1 -1  1  1 -1  1  1 -1]
- [ 1 -1  1 -1 -1 -1 -1  1  1 -1]
- [-1 -1  1  1 -1 -1  1  1 -1  1]]
-4.0 -12.0 8.0
--}
+trialDataLong400 :: V.Vector (Int, Int, Double)
+trialDataLong400 = V.fromList
+  [ (7, 7, 0.133954208172)
+  , (6, 8, 0.748777878277)
+  , (9, 7, 0.543345230584)
+  , (2, 2, 0.91845864659)
+  , (9, 5, 0.346237909455)
+  , (6, 2, 0.913915477165)
+  , (1, 4, 0.540191515667)
+  , (0, 6, 0.826249828434)
+  , (2, 6, 0.176712161584)
+  , (9, 5, 0.489266166995)
+  ]
 
-{-
-[[-1 -1  1 -1 -1 -1 -1  1 -1 -1]
- [ 1  1 -1  1 -1  1  1 -1  1 -1]
- [ 1 -1 -1 -1 -1  1 -1 -1 -1 -1]
- [-1 -1  1 -1  1 -1  1  1 -1  1]
- [ 1  1  1 -1  1 -1 -1  1  1  1]
- [ 1 -1 -1  1 -1 -1 -1 -1  1  1]
- [ 1  1  1 -1 -1  1 -1 -1 -1 -1]
- [ 1 -1 -1 -1  1  1 -1  1  1 -1]
- [ 1 -1  1 -1 -1 -1 -1  1  1 -1]
- [-1 -1  1  1 -1 -1  1  1 -1  1]]
-0
-9 5
-0.346237909455
-1
-6 2
-0.913915477165
-[[-1 -1  1 -1 -1 -1 -1  1 -1 -1]
- [ 1  1 -1  1 -1  1  1 -1  1 -1]
- [ 1 -1 -1 -1 -1  1 -1 -1 -1 -1]
- [-1 -1  1 -1  1 -1  1  1 -1  1]
- [ 1  1  1 -1  1 -1 -1  1  1  1]
- [ 1 -1 -1  1 -1 -1 -1 -1  1  1]
- [ 1  1 -1 -1 -1  1 -1 -1 -1 -1]
- [ 1 -1 -1 -1  1  1 -1  1  1 -1]
- [ 1 -1  1 -1 -1 -1 -1  1  1 -1]
- [-1 -1  1  1 -1 -1  1  1 -1  1]]
-2.25 -14.0 4.0
--}
+initGridLong400 :: V.Vector Int
+initGridLong400 = V.fromList $ concat $ initGridL
+  where
+    initGridL = [ [-1, -1,  1, -1, -1, -1, -1,  1, -1, -1]
+                , [ 1,  1, -1,  1, -1,  1,  1, -1,  1, -1]
+                , [ 1, -1, -1, -1, -1,  1, -1, -1, -1, -1]
+                , [-1, -1,  1, -1,  1, -1,  1,  1, -1,  1]
+                , [ 1,  1,  1, -1,  1, -1, -1,  1,  1,  1]
+                , [ 1, -1, -1,  1, -1, -1, -1, -1,  1,  1]
+                , [ 1,  1,  1, -1, -1,  1, -1, -1,  1, -1]
+                , [ 1, -1, -1, -1,  1,  1, -1, -1,  1, -1]
+                , [ 1, -1,  1, -1, -1, -1, -1,  1,  1, -1]
+                , [-1, -1,  1,  1, -1, -1,  1,  1, -1,  1]
+                ]
+
+finalGridLong400 :: V.Vector Int
+finalGridLong400 = V.fromList $ concat $ initGridL
+  where
+    initGridL = [  [-1, -1,  1, -1, -1, -1,  1,  1, -1, -1]
+                 , [ 1,  1, -1,  1,  1,  1,  1, -1,  1, -1]
+                 , [ 1, -1, -1, -1, -1,  1,  1, -1, -1, -1]
+                 , [-1, -1,  1, -1,  1, -1,  1,  1, -1,  1]
+                 , [ 1,  1,  1, -1,  1, -1, -1,  1,  1,  1]
+                 , [ 1, -1, -1,  1, -1, -1, -1, -1,  1,  1]
+                 , [ 1,  1, -1, -1, -1,  1, -1, -1, -1, -1]
+                 , [ 1, -1, -1, -1,  1,  1, -1,  1,  1, -1]
+                 , [ 1, -1,  1, -1, -1, -1, -1,  1,  1, -1]
+                 , [-1, -1,  1,  1, -1, -1,  1,  1, -1,  1]
+                ]
+
+initStateLong400 = McState { mcMagnetization = fromIntegral $
+                                               magnetization initGridLong400
+                           , mcMAvg = 0.0
+                           , mcCount = 0
+                           , mcNumSamples = 0
+                           , mcGrid = initGridLong400
+                           }
+
+expectedMagnetizationLong400 :: Double
+expectedMagnetizationLong400 = -10.0
+
+m = (4.0 - 0.5) / (100 - 1)
+c = 0.5 - m
+xs = map (\x -> m * x + c) [1..100]
 
 main :: IO ()
 main = do let newState = trial trialInitState 1.375 trialData
-          let newState225 = trial trialInitState225 2.25 trialData225
+              newState225 = trial trialInitState225 2.25 trialData225
+              newStateLong400 = trial initStateLong400 4.00 trialDataLong400
+          print $ mcMagnetization newStateLong400
+          print $ magnetization finalGridLong400
+          print $ mcMAvg newStateLong400 / (fromIntegral $ V.length trialDataLong400)
+          let newGrids = map (\t -> trial trialInitState t (testData nitt)) xs
+          -- let newGrid0 = trial trialInitState 0.50  (testData nitt)
+              -- newGrid1 = trial trialInitState 1.375 (testData nitt)
+              -- newGrid2 = trial trialInitState 2.25  (testData nitt)
+              -- newGrid3 = trial trialInitState 3.125 (testData nitt)
+              -- newGrid4 = trial trialInitState 4.00  (testData nitt)
+          print "Magnetization"
+          mapM_ putStrLn $ reverse $
+            zipWith (\t x -> show t ++ " " ++
+                             show (mcMAvg x / fromIntegral nitt)) xs newGrids
+          -- print $ mcMAvg newGrid0 / fromIntegral nitt
+          -- print $ mcMAvg newGrid1 / fromIntegral nitt
+          -- print $ mcMAvg newGrid2 / fromIntegral nitt
+          -- print $ mcMAvg newGrid3 / fromIntegral nitt
+          -- print $ mcMAvg newGrid4 / fromIntegral nitt
+          
+          -- defaultMain $ (chessBoard initGrid' # translate (0&0)) <>
+          --               (chessBoard (mcGrid newGrid1) # translate (12&0)) <>
+          --               (chessBoard (mcGrid newGrid2) # translate (24&0)) <>
+          --               (chessBoard (mcGrid newGrid3) # translate (36&0)) <>
+          --               (chessBoard (mcGrid newGrid4) # translate (48&0))
+                        
           T.defaultMain $ T.testGroup "Two step updates"
             [ testCase "T = 1.375 Grid" $
               assertEqual "Grid" (mcGrid newState) expectedGrid
@@ -324,6 +354,13 @@ main = do let newState = trial trialInitState 1.375 trialData
             , testCase "T = 2.25 Magnetization" $
               assertEqual "Magnetization" (mcMagnetization newState225)
                                           expectedMagnetization225
+            , testCase "T = 4.00 Grid" $
+              assertEqual "Grid" (mcGrid newStateLong400) finalGridLong400
+              
+            , testCase "T = 4.00 Magnetization" $
+              assertEqual "Magnetization"
+              expectedMagnetizationLong400
+              (mcMAvg newStateLong400 / (fromIntegral $ V.length trialDataLong400))
             ]
           
 -- main = do let newGrid1 = trial 1.0 (testData 1000000)
