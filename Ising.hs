@@ -14,7 +14,7 @@ import Data.Random
 import Control.Monad.State
 
 import Data.List.Split ( chunksOf )
-import Diagrams.Prelude hiding ( sample )
+import Diagrams.Prelude hiding ( sample, render )
 import Diagrams.Coordinates ( (&) )
 import Diagrams.Backend.Cairo.CmdLine
 
@@ -23,6 +23,21 @@ import qualified Test.Tasty as T
 import Test.Tasty.HUnit
 
 import qualified Debug.Trace as D
+
+import Graphics.Rendering.Chart
+import Data.Colour
+import Data.Colour.Names
+import Data.Default.Class
+import Data.Monoid
+import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
+import Graphics.Rendering.Chart.Backend.Diagrams
+import Diagrams.Core.Types hiding ( render, sample )
+import Diagrams.TwoD.Types
+import Diagrams.Backend.Cairo
+import Control.Lens hiding ( (#) )
+
+import System.IO.Unsafe
+
 
 data McState = McState { mcMagnetization :: !Double
                        , mcMAvg          :: !Double
@@ -36,7 +51,7 @@ gridSize :: Int
 gridSize = 10
 
 measure :: Int
-measure = 1 -- 100
+measure = 100
 
 nitt :: Int
 nitt = 1000000
@@ -129,7 +144,7 @@ testData :: Int -> V.Vector (Int, Int, Double)
 testData m =
   V.fromList $
   evalState (replicateM m x)
-  (pureMT 3)
+  (pureMT 2)
   where
     x = do r <- sample (uniform (0 :: Int)    (gridSize - 1))
            c <- sample (uniform (0 :: Int)    (gridSize - 1))
@@ -169,14 +184,6 @@ trialInitState = McState { mcMagnetization = fromIntegral $
                          , mcGrid = trialGrid
                         }
 
-trialInitState225 = McState { mcMagnetization = fromIntegral $
-                                                magnetization trialGrid225
-                            , mcMAvg = 0.0
-                            , mcCount = 0
-                            , mcNumSamples = 0
-                            , mcGrid = trialGrid225
-                        }
-
 trialGrid :: V.Vector Int
 trialGrid = V.fromList $ concat $ initGridL
   where
@@ -197,25 +204,6 @@ trialData = V.fromList [ (7, 7, 0.133954208172)
                        , (6, 8, 0.748777878277)
                        ]
 
-trialGrid225 :: V.Vector Int
-trialGrid225 = V.fromList $ concat $ initGridL
-  where
-    initGridL = [ [-1, -1,  1, -1, -1, -1, -1,  1, -1, -1]
-                , [ 1,  1, -1,  1, -1,  1,  1, -1,  1, -1]
-                , [ 1, -1, -1, -1, -1,  1, -1, -1, -1, -1]
-                , [-1, -1,  1, -1,  1, -1,  1,  1, -1,  1]
-                , [ 1,  1,  1, -1,  1, -1, -1,  1,  1,  1]
-                , [ 1, -1, -1,  1, -1, -1, -1, -1,  1,  1]
-                , [ 1,  1,  1, -1, -1,  1, -1, -1, -1, -1]
-                , [ 1, -1, -1, -1,  1,  1, -1,  1,  1, -1]
-                , [ 1, -1,  1, -1, -1, -1, -1,  1,  1, -1]
-                , [-1, -1,  1,  1, -1, -1,  1,  1, -1,  1]]
-
-
-trialData225 :: V.Vector (Int, Int, Double)
-trialData225 = V.fromList [ (9, 5, 0.346237909455)
-                          , (6, 2, 0.913915477165)
-                          ]
 
 -- (6, 8) and (7, 7) are flipped so the magnetization remains constant.
 
@@ -314,23 +302,31 @@ m = (4.0 - 0.5) / (100 - 1)
 c = 0.5 - m
 xs = map (\x -> m * x + c) [1..100]
 
+newGrids = map (\t -> trial trialInitState t (testData nitt)) xs
+
 main :: IO ()
 main = do let newState = trial trialInitState 1.375 trialData
-              newState225 = trial trialInitState225 2.25 trialData225
               newStateLong400 = trial initStateLong400 4.00 trialDataLong400
           print $ mcMagnetization newStateLong400
           print $ magnetization finalGridLong400
           print $ mcMAvg newStateLong400 / (fromIntegral $ V.length trialDataLong400)
-          let newGrids = map (\t -> trial trialInitState t (testData nitt)) xs
           -- let newGrid0 = trial trialInitState 0.50  (testData nitt)
               -- newGrid1 = trial trialInitState 1.375 (testData nitt)
               -- newGrid2 = trial trialInitState 2.25  (testData nitt)
               -- newGrid3 = trial trialInitState 3.125 (testData nitt)
               -- newGrid4 = trial trialInitState 4.00  (testData nitt)
           print "Magnetization"
-          mapM_ putStrLn $ reverse $
+          mapM_ putStrLn $
             zipWith (\t x -> show t ++ " " ++
                              show (mcMAvg x / fromIntegral nitt)) xs newGrids
+
+          
+          -- env <- defaultEnv vectorAlignmentFns 500 500
+          -- let d :: QDiagram Cairo R2 Any
+          --     d = fst $ runBackend env (render errChart (500, 500))
+          renderableToPNGFile errChart 500 500 "Magnetism.png"
+          putStrLn "Hello"
+          
           -- print $ mcMAvg newGrid0 / fromIntegral nitt
           -- print $ mcMAvg newGrid1 / fromIntegral nitt
           -- print $ mcMAvg newGrid2 / fromIntegral nitt
@@ -343,25 +339,25 @@ main = do let newState = trial trialInitState 1.375 trialData
           --               (chessBoard (mcGrid newGrid3) # translate (36&0)) <>
           --               (chessBoard (mcGrid newGrid4) # translate (48&0))
                         
-          T.defaultMain $ T.testGroup "Two step updates"
-            [ testCase "T = 1.375 Grid" $
-              assertEqual "Grid" (mcGrid newState) expectedGrid
-            , testCase "T = 1.375 Magnetization" $
-              assertEqual "Magnetization" (mcMagnetization newState)
-                                          expectedMagnetization
-            , testCase "T = 2.25 Grid" $
-              assertEqual "Grid" (mcGrid newState225) expectedGrid225
-            , testCase "T = 2.25 Magnetization" $
-              assertEqual "Magnetization" (mcMagnetization newState225)
-                                          expectedMagnetization225
-            , testCase "T = 4.00 Grid" $
-              assertEqual "Grid" (mcGrid newStateLong400) finalGridLong400
+          -- T.defaultMain $ T.testGroup "Two step updates"
+          --   [ testCase "T = 1.375 Grid" $
+          --     assertEqual "Grid" (mcGrid newState) expectedGrid
+          --   , testCase "T = 1.375 Magnetization" $
+          --     assertEqual "Magnetization" (mcMagnetization newState)
+          --                                 expectedMagnetization
+          --   , testCase "T = 2.25 Grid" $
+          --     assertEqual "Grid" (mcGrid newState225) expectedGrid225
+          --   , testCase "T = 2.25 Magnetization" $
+          --     assertEqual "Magnetization" (mcMagnetization newState225)
+          --                                 expectedMagnetization225
+          --   , testCase "T = 4.00 Grid" $
+          --     assertEqual "Grid" (mcGrid newStateLong400) finalGridLong400
               
-            , testCase "T = 4.00 Magnetization" $
-              assertEqual "Magnetization"
-              expectedMagnetizationLong400
-              (mcMAvg newStateLong400 / (fromIntegral $ V.length trialDataLong400))
-            ]
+          --   , testCase "T = 4.00 Magnetization" $
+          --     assertEqual "Magnetization"
+          --     expectedMagnetizationLong400
+          --     (mcMAvg newStateLong400 / (fromIntegral $ V.length trialDataLong400))
+          --   ]
           
 -- main = do let newGrid1 = trial 1.0 (testData 1000000)
 --               newGrid2 = trial 2.0 (testData 1000000)
@@ -387,4 +383,48 @@ chessBoard v
     f (-1) = red
     f   1  = blue
     f _    = error "Unexpected spin"
+
+bar :: DEnv
+bar = unsafePerformIO $ defaultEnv vectorAlignmentFns 500 500
+
+errDiag :: QDiagram Cairo R2 Any
+errDiag = fst $ runBackend bar (render errChart (500, 500))
     
+errChart = toRenderable layout
+  where
+    sinusoid1 = plot_lines_values .~ [[ (x, abs $ mcMAvg $
+                                            trial trialInitState x (testData nitt))
+                                      | x <- xs]]
+              $ plot_lines_style  . line_color .~ opaque blue
+              $ plot_lines_title .~ "error"
+              $ def
+
+    f  = negate . logBase 2
+    g  = f . numericalErr 1.0
+
+    layout = layout1_title .~ "Floating Point Error"
+           $ layout1_plots .~ [Left (toPlot sinusoid1)]
+           $ layout1_left_axis .~ errorAxis
+           $ layout1_bottom_axis .~ stepSizeAxis
+           $ def
+
+    errorAxis = laxis_title .~ "Minus log to base 2 of the error"
+              $ def
+
+    stepSizeAxis = laxis_title .~ "Minus log to base 2 of the step size"
+                 $ def
+
+
+f :: Double -> Double
+f x = exp x
+
+numericalF' :: Double -> Double -> Double
+numericalF' x h = (f (x + h) - f x) / h
+
+numericalErr :: Double -> Double -> Double
+numericalErr x h = abs ((exp 1.0 - numericalF' x h))
+
+powersOf2 :: Fractional a => [a]
+powersOf2 = 1 : map (/2) powersOf2
+
+errs = map (logBase 2 . numericalErr 1.0) powersOf2
