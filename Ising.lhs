@@ -7,7 +7,7 @@ bibliography: Ising.bib
 ---
 
 Introduction
-------------
+============
 
 About a year ago there was a reddit post on the [Ising Model in
 Haskell](http://www.reddit.com/r/haskell/comments/16uc2x/ising_model_in_haskell). The
@@ -38,12 +38,12 @@ embarrassingly parallel
 
 
 Acknowledgements
-----------------
+================
 
 -- James Cook's package and comments
 
 Other
------
+=====
 
 An explanation of the Boltzmann distribution (which we need to replay):
 
@@ -51,15 +51,77 @@ http://www.math.fsu.edu/~quine/MB_11/10%20HP%20model%20and%20Boltzmann%20distrib
 
 An explanation of the Ising model using the Boltzmann distribution: http://www.uio.no/studier/emner/matnat/fys/FYS3150/h07/undervisningsmateriale/Lecture%20Notes/lecture2007.pdf
 
-The letter Z stands for the German word Zustandssumme, "sum over states"
-
 Markov Chains
--------------
+=============
+
+We follow [@DBLP:books/daglib/0095301] and [@Beichl615768].
+
+Let ${\mathbb X}$ be a finite set (the state space) and $\pi(x)$ be a
+probability distribution on ${\mathbb X}$. In the case of the Ising
+model, we have a grid on which each point (atom) can either have spin
+up or spin down. The probability distribution is given by the Boltzmann distribution
+
+$$
+\pi(\sigma) = \frac{\exp(-E(\sigma) / k_B T)}{Z(T)} 
+$$
+
+where the sum $T$ is the temperature, $j_B$ is Boltzmann's constant,
+$E$ is the energy of a given state
+
+$$
+E(\sigma) = -J\sum_{i, j} \sigma_i \sigma_j - B \sum_k \sigma_k
+$$
+
+and $Z(T)$ is a normalizing constant (Z for the German word
+Zustandssumme, "sum over states")
+
+$$
+Z(T) = \sum_\sigma \exp(-E(\sigma) / k_B T)
+$$
+
+The standard notation for $k_B T$ is $\beta$.
+
+The problem is how to sample from such a distribution.
+
+Metropolis and his team [@Metropolis53] discovered a way of
+constructing a Markov chain with a limiting distribution of the distribution required.
+
+http://streaming.stat.iastate.edu/~stat444x_B/Literature/ChibGreenberg.pdf
 
 Let $S$ be a finite set. In the case of an Ising model with $N$ cells,
 this set will contain $2^N$ elements. Let $P = \{ p_{ij} : i, j \in S
-\}$.
+\}$ be such that
 
+$$
+\sum_{j \in S} p_{ij} = 1 \, \forall i \in S 
+$$
+
+A Markov chain has a **stationary distribution** $\pi_i$ if
+
+$$
+\sum_{i \in S} \pi_i p_{ji} = \pi_j
+$$
+
+One question one might ask is whether a given Markov chain has such a distribution.
+
+Let $X_n$ be a Markov chain. A state $i$ is **recurrent** if
+
+$$
+{\mathbb P} (X_n = i \, \text{i.o.}) = 1
+$$ 
+
+The Ergodic Theorem
+-------------------
+
+Write ${\mathbb P}_i(A) = {\mathbb P}(A \, | \, X_0 = i)$
+
+We say that $i$ **leads to** $j$ and write $i \rightarrow j$ if
+
+$$
+{\mathbb P}_i(X_n = j \, \text{for some n}) \gt 0
+$$
+
+Let $P$
 
 Other Other
 -----------
@@ -315,3 +377,5 @@ Calculate energy:
 >            return (r, c, v)
 > 
 
+Bibliography and Resources
+--------------------------
