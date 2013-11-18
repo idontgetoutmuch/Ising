@@ -1,6 +1,6 @@
-% Neural Networks and Automated Differentiation
+% Haskell, Ising, Markov & Metropolis
 % Dominic Steinitz
-% 4th April 2013
+% 18th November 2013
 
 ---
 bibliography: Ising.bib
@@ -51,10 +51,14 @@ http://www.math.fsu.edu/~quine/MB_11/10%20HP%20model%20and%20Boltzmann%20distrib
 
 An explanation of the Ising model using the Boltzmann distribution: http://www.uio.no/studier/emner/matnat/fys/FYS3150/h07/undervisningsmateriale/Lecture%20Notes/lecture2007.pdf
 
-Markov Chains
-=============
+Monte Carlo Estimation
+======================
 
-We follow [@DBLP:books/daglib/0095301] and [@Beichl615768].
+Although Ising himself developed an analytic solution in 1 dimension
+and Onsager later developed an analytic solution in 2 dimensions,
+no-one has (yet) found an analytic solution for 3 dimensions.
+
+As usual we work on a measure space $(\Omega, {\mathbb F}, \mu)$.
 
 Let ${\mathbb X}$ be a finite set (the state space) and $\pi(x)$ be a
 probability distribution on ${\mathbb X}$. In the case of the Ising
@@ -96,22 +100,43 @@ $$
 \sum_{j \in S} p_{ij} = 1 \, \forall i \in S 
 $$
 
+
+Markov Chains
+=============
+
+Markov first studied the stochastic processes that came to be named after him in 1906.
+
+We follow [@DBLP:books/daglib/0095301], [@Beichl615768] and [@Gravner:mat135a:Online].
+
+
+Stationarity
+------------
+
 A Markov chain has a **stationary distribution** $\pi_i$ if
 
 $$
 \sum_{i \in S} \pi_i p_{ji} = \pi_j
 $$
 
-One question one might ask is whether a given Markov chain has such a distribution.
-
-Let $X_n$ be a Markov chain. A state $i$ is **recurrent** if
+One question one might ask is whether a given Markov chain has such a
+distribution. For example, for the following chain, any distribution
+is a stationary distribution. That is $\pi P = \pi$ for any $\pi$.
 
 $$
-{\mathbb P} (X_n = i \, \text{i.o.}) = 1
-$$ 
+\begin{bmatrix}
+  1 & 0 \\
+  0 & 1
+ \end{bmatrix}
+$$
 
-The Ergodic Theorem
--------------------
+Another key question is, if there is a unique stationary distribution,
+will the $n$-th transion probabilities converge to that distribution
+(FIXME: really badly expressed but will do as a reminder).
+
+In the case of chains with a countably infinite state space, a 
+
+Irreducibility
+--------------
 
 Write ${\mathbb P}_i(A) = {\mathbb P}(A \, | \, X_0 = i)$
 
@@ -121,7 +146,143 @@ $$
 {\mathbb P}_i(X_n = j \, \text{for some n}) \gt 0
 $$
 
-Let $P$
+**Theorem** For distinct states $i$ and $j$, the following are equivalent:
+
+* $i \rightarrow j$
+* $p_{i_0i_1} p_{i_1i_2} \ldots p_{i_{n-1}i_n} \gt 0$
+* $p_{ij}^{(n)} \gt 0$
+
+$\blacksquare$
+
+This makes it clear that $\rightarrow$ is transitive and reflexive
+hence an equivalence relation. We can therefore partition the states
+into classes. If there is only one class then the chain is called
+**irreducible**.
+
+For example,
+
+$$
+\begin{bmatrix}
+  \frac{1}{2} & \frac{1}{2} &           0 &           0 \\
+  \frac{1}{2} & \frac{1}{2} &           0 &           0 \\
+            0 &           0 & \frac{1}{4} & \frac{3}{4} \\
+            0 &           0 &           0 &           1
+ \end{bmatrix}
+$$
+
+has classes $\{1, 2\}$, $\{3\}$ and $\{4\}$ so is *not* irreducible.
+
+On the other hand
+
+$$
+\begin{bmatrix}
+  \frac{1}{2} & \frac{1}{2} &           0 \\
+  \frac{1}{2} & \frac{1}{4} & \frac{1}{4} \\
+            0 & \frac{1}{3} & \frac{2}{3}
+\end{bmatrix}
+$$
+
+is irreducible.
+
+Recurrence
+----------
+
+Let $X_n$ be a Markov chain. A state $i$ is **recurrent** if
+
+$$
+{\mathbb P} (X_n = i \, \text{i.o.}) = 1
+$$ 
+
+The **first passage time** is defined as
+
+$$
+T_j = \inf_{n \ge 1} \{X_n = j\}
+$$
+
+Note that the $\inf$ is taken over $n$ *strictly* greater than
+1. Incidentally the first passage time is a stopping time but that any
+discussion of that would take this already long article even longer.
+
+The expecation of the $i$-th first passage time starting from $i$ is
+denoted ${\mathbb E}_i(T_i)$.
+
+Define $m_i = {\mathbb E}_i(T_i)$
+
+**Theorem** Let $P$ be irreducible then the following are equivalent:
+
+* Every state is positive recurrent.
+
+* Some state is positive recurrent.
+
+* P has an invariant distribution $\pi$ and in this case $\pi_i = 1 / m_i$.
+
+$\blacksquare$
+
+A state $i$ is **aperiodic** if $p_{nn} \gt 0$ for *all* sufficiently large $n$.
+
+Example:
+
+$$
+\begin{bmatrix}
+  0 & 1 \\
+  1 & 0
+ \end{bmatrix}
+$$
+
+FIXME: Put Haskell example here with ghci for the first few terms
+
+**Theorem** Let $P$ be irreducible and aperiodic and suppose that $P$ has an
+invariant distribution $\pi$. Let $\pi_0$ be any distribution (on the state space???). Suppose that $(X_n)_{n \ge 0}$ is Markov $(\pi_0, P)$ then
+
+* $\mu(X_n = j) \rightarrow \pi_j$ as $n \rightarrow \infty$ for all $j$
+
+$\blacksquare$
+
+A proof of this theorem uses *coupling* developed by Doeblin; see
+[@Gravner:mat135a:Online] for more details.
+
+**Corollary** With the conditions of the preceeding Theorem
+
+* $p_{ij}^{(n)} \rightarrow \pi_j$ as $n \rightarrow \infty$ for all $i, j$
+
+$\blacksquare$
+
+If the state space is infinite, the existence of a stationary
+distribution is not guaranteed even if the Markov chain is
+irreducible, see [@Srikant:ece534:Online] for more details.
+
+The Ergodic Theorem
+-------------------
+
+An irreducible, aperiodic, positive recurrent Markov chain has a
+unique stationary distribution, which is also the limiting
+distribution
+
+Such Markov chains are called ergodic
+
+Define the number of visits to $i$ strictly before time $n$ as
+
+$$
+V_i(n) \triangleq \sum_{k = 0}^{n - 1}{\mathcal I}_{\{X_k = i\}}
+$$
+
+$V_i(n) / n$ is the proportion of time before $n$ spent in state $i$.
+
+**Theorem** Let $(X_n)_{(n \ge 0)}$ be an irreducible Markov chain then
+
+$$
+{\mathbb P} \Bigg(\frac{V_i(n)}{n} \rightarrow \frac{1}{m_i} \, {\text as} \, n \rightarrow \infty \Bigg) = 1
+$$
+
+If further the chain is positive recurrent then for any bounded
+function $f : {\mathbb I} \rightarrow {\mathbb R}$ then
+
+$$
+
+$$
+
+
+\blacksquare
 
 Other Other
 -----------
