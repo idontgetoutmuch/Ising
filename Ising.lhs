@@ -42,6 +42,42 @@ Acknowledgements
 
 -- James Cook's package and comments
 
+Haskell Preamble
+================
+
+Pragmas and imports to which only the over-enthusiastic reader need pay attention.
+
+> {-# OPTIONS_GHC -Wall                      #-}
+> {-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
+> {-# OPTIONS_GHC -fno-warn-type-defaults    #-}
+> {-# OPTIONS_GHC -fno-warn-unused-do-bind   #-}
+> {-# OPTIONS_GHC -fno-warn-missing-methods  #-}
+> {-# OPTIONS_GHC -fno-warn-orphans          #-}
+> 
+> {-# LANGUAGE TypeFamilies                  #-}
+> 
+> module Ising (
+>        McState (..)
+>        , main -- FIXME: For now just to get rid of warnings
+>        ) where
+> 
+> import qualified Data.Vector.Unboxed as V
+> import qualified Data.Vector.Unboxed.Mutable as M
+> import Data.Random.Source.PureMT
+> import Data.Random
+> import Control.Monad.State
+> 
+> import Data.List.Split ( chunksOf )
+> import Diagrams.Prelude hiding ( sample, render )
+> import qualified Diagrams.Prelude as D
+> import Diagrams.Coordinates ( (&) )
+> import Diagrams.Backend.Cairo.CmdLine
+> 
+> import Graphics.Rendering.Chart
+> import Data.Default.Class
+> import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
+> import Control.Lens hiding ( (#), (&) )
+
 Other
 =====
 
@@ -58,18 +94,16 @@ Although Ising himself developed an analytic solution in 1 dimension
 and Onsager later developed an analytic solution in 2 dimensions,
 no-one has (yet) found an analytic solution for 3 dimensions.
 
-As usual we work on a measure space $(\Omega, {\mathbb F}, \mu)$.
 
-Let ${\mathbb X}$ be a finite set (the state space) and $\pi(x)$ be a
-probability distribution on ${\mathbb X}$. In the case of the Ising
-model, we have a grid on which each point (atom) can either have spin
-up or spin down. The probability distribution is given by the Boltzmann distribution
+One way to determine an approximate answer is to use a Monte Carlo
+method. We could pick sample configurations at random according to the
+Boltzmann distribution
 
 $$
 \pi(\sigma) = \frac{\exp(-E(\sigma) / k_B T)}{Z(T)} 
 $$
 
-where the sum $T$ is the temperature, $j_B$ is Boltzmann's constant,
+where the sum $T$ is the temperature, $k_B$ is Boltzmann's constant,
 $E$ is the energy of a given state
 
 $$
@@ -85,7 +119,83 @@ $$
 
 The standard notation for $k_B T$ is $\beta$.
 
-The problem is how to sample from such a distribution.
+We can evaluate the energy for one state easily enough.
+
+As an aside, we represent each state by a *Vector* of *Int*. No doubt
+more efficient representations can be implemented. We also have to
+calculate offsets into the vector given a point's grid co-ordinates.
+
+> energy :: V.Vector Int => Double
+> energy v = 0.5 * (fromIntegral $ V.sum energyAux)
+>   where
+> 
+>     energyAux = V.generate l f
+> 
+>     l = V.length v
+> 
+>     f m = c * d
+>       where
+>         i = m `mod` gridSize
+>         j = (m `mod` (gridSize * gridSize)) `div` gridSize
+> 
+>         c = v V.! jc
+>         jc = gridSize * i + j
+>         
+>         d = n + e + s + w
+> 
+>         n = v V.! jn
+>         e = v V.! je
+>         s = v V.! js
+>         w = v V.! jw
+>     
+>         jn = gridSize * ((i + 1) `mod` gridSize) + j
+>         js = gridSize * ((i - 1) `mod` gridSize) + j
+>         je = gridSize * i + ((j + 1) `mod` gridSize)
+>         jw = gridSize * i + ((j - 1) `mod` gridSize)
+
+But what about the normalizing constant $Z$? Even for a modest grid
+size say $10 \times 10$, the number of states that needs to be summed
+over is extremely large $2^{10 \times 10}$.
+
+Instead of summing the entire state space, we could draw R random
+samples $(\sigma^{(i)})_{0 \le i \lt R}$ uniformly from the state
+space. We could then use
+
+$$
+Z_R = \sum_0^{R-1} P^*(\sigma^{(i)})
+$$
+
+to estimate e.g. the magnetization
+
+$$
+\langle M \rangle = \sum_\sigma M(\sigma) \frac{\exp(-\beta E(\sigma))}{Z(T)} \mathrm{d} \sigma
+$$
+
+by
+
+$$
+\widehat{\langle M \rangle} = \sum_{i=0}^{R-1} M(\sigma) \frac{exp(-\beta E(\sigma(i)))}{Z(T)}
+$$
+
+
+However we know from statistical physics that systems with large
+numbers of particles will occupy a small portion of the state space
+with any significant probability.  And according to [@MacKay:itp], a
+high dimensional distribution is often concentrated on small region of
+the state space known as its typical set $T$ whose volume is given by
+$|T| \approx 2^H$ where $H$ is the entropy of the Boltzmann
+distribution.
+
+$$
+H = -\sum_\sigma P(\sigma)\log_2(P(\sigma))
+$$
+
+If almost all the probability mass is located in $T$ then the actual
+value of the (mean) magnetization will determined by the values that
+$M$ takes on that set.
+
+As usual we work on a measure space $(\Omega, {\mathbb F}, \mu)$.
+
 
 Metropolis and his team [@Metropolis53] discovered a way of
 constructing a Markov chain with a limiting distribution of the distribution required.
@@ -294,36 +404,6 @@ Calculate magnetization:
 
 Calculate energy:
 
-> {-# OPTIONS_GHC -Wall                      #-}
-> {-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
-> {-# OPTIONS_GHC -fno-warn-type-defaults    #-}
-> {-# OPTIONS_GHC -fno-warn-unused-do-bind   #-}
-> {-# OPTIONS_GHC -fno-warn-missing-methods  #-}
-> {-# OPTIONS_GHC -fno-warn-orphans          #-}
-> 
-> {-# LANGUAGE TypeFamilies                  #-}
-> 
-> module Ising (
->        McState (..)
->        , main -- FIXME: For now just to get rid of warnings
->        ) where
-> 
-> import qualified Data.Vector.Unboxed as V
-> import qualified Data.Vector.Unboxed.Mutable as M
-> import Data.Random.Source.PureMT
-> import Data.Random
-> import Control.Monad.State
-> 
-> import Data.List.Split ( chunksOf )
-> import Diagrams.Prelude hiding ( sample, render )
-> import qualified Diagrams.Prelude as D
-> import Diagrams.Coordinates ( (&) )
-> import Diagrams.Backend.Cairo.CmdLine
-> 
-> import Graphics.Rendering.Chart
-> import Data.Default.Class
-> import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
-> import Control.Lens hiding ( (#), (&) )
 > data McState = McState { mcMagnetization :: !Double
 >                        , mcMAvg          :: !Double
 >                        , mcCount         :: !Int
@@ -347,33 +427,6 @@ Calculate energy:
 > magnetization :: (V.Unbox a, Num a) => V.Vector a => a
 > magnetization = V.sum
 > 
-> energy :: V.Vector Int => Double
-> energy v = 0.5 * (fromIntegral $ V.sum energyAux)
->   where
-> 
->     energyAux = V.generate l f
-> 
->     l = V.length v
-> 
->     f m = c * d
->       where
->         i = m `mod` gridSize
->         j = (m `mod` (gridSize * gridSize)) `div` gridSize
-> 
->         c = v V.! jc
->         jc = gridSize * i + j
->         
->         d = n + e + s + w
-> 
->         n = v V.! jn
->         e = v V.! je
->         s = v V.! js
->         w = v V.! jw
->     
->         jn = gridSize * ((i + 1) `mod` gridSize) + j
->         js = gridSize * ((i - 1) `mod` gridSize) + j
->         je = gridSize * i + ((j + 1) `mod` gridSize)
->         jw = gridSize * i + ((j - 1) `mod` gridSize)
 >     
 > expDv :: Double -> V.Vector Double
 > expDv t = V.generate 9 f
