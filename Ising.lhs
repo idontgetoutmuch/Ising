@@ -96,7 +96,13 @@ no-one has (yet) found an analytic solution for 3 dimensions.
 
 
 One way to determine an approximate answer is to use a Monte Carlo
-method. We could pick sample configurations at random according to the
+method.
+
+Uniform Sampling
+----------------
+
+
+ We could pick sample configurations at random according to the
 Boltzmann distribution
 
 $$
@@ -183,8 +189,9 @@ numbers of particles will occupy a small portion of the state space
 with any significant probability.  And according to [@MacKay:itp], a
 high dimensional distribution is often concentrated on small region of
 the state space known as its typical set $T$ whose volume is given by
-$|T| \approx 2^H$ where $H$ is the entropy of the Boltzmann
-distribution.
+$|T| \approx 2^H$ where $H$ is the entropy of the (Boltzmann)
+distribution which for ease of exposition we temporarily denote by
+$P$.
 
 $$
 H = -\sum_\sigma P(\sigma)\log_2(P(\sigma))
@@ -192,13 +199,33 @@ $$
 
 If almost all the probability mass is located in $T$ then the actual
 value of the (mean) magnetization will determined by the values that
-$M$ takes on that set.
+$M$ takes on that set. So uniform sampling will only give a good
+estimate if we make $R$ large enough that we hit $T$ at least a small
+number of times. The total size of the state space is $2^N$ and the
+$|T| \approx 2^H$, so there is a probability of $2^H / 2^N$ of hitting
+$T$. Thus we need roughly $2^{N - H}$ samples to hit $T$.
+
+At high temperatures, the Boltzmann distribution flattens out so
+roughly all of the states have an equal likelihood of being
+occupied. We can calculate the (Shannon) entropy for this.
+
+$$
+H \approx \sum_\sigma \frac{1}{2^N}\log_2 2^N = N
+$$
+
+Thus uniform sampling will provide reasonable estimates.
+
+
+
+
+
+Afterword: This sub-section could do with more expansion but this
+article is already overlong.
+
+
 
 As usual we work on a measure space $(\Omega, {\mathbb F}, \mu)$.
 
-
-Metropolis and his team [@Metropolis53] discovered a way of
-constructing a Markov chain with a limiting distribution of the distribution required.
 
 http://streaming.stat.iastate.edu/~stat444x_B/Literature/ChibGreenberg.pdf
 
@@ -213,6 +240,10 @@ $$
 
 Markov Chains
 =============
+
+Metropolis and his team [@Metropolis53] discovered a way of
+constructing a Markov chain with a limiting distribution of the
+distribution required.
 
 Markov first studied the stochastic processes that came to be named after him in 1906.
 
