@@ -53,26 +53,26 @@ Pragmas and imports to which only the over-enthusiastic reader need pay attentio
 > {-# OPTIONS_GHC -fno-warn-unused-do-bind   #-}
 > {-# OPTIONS_GHC -fno-warn-missing-methods  #-}
 > {-# OPTIONS_GHC -fno-warn-orphans          #-}
-> 
+>
 > {-# LANGUAGE TypeFamilies                  #-}
-> 
+>
 > module Ising (
 >        McState (..)
 >        , main -- FIXME: For now just to get rid of warnings
 >        ) where
-> 
+>
 > import qualified Data.Vector.Unboxed as V
 > import qualified Data.Vector.Unboxed.Mutable as M
 > import Data.Random.Source.PureMT
 > import Data.Random
 > import Control.Monad.State
-> 
+>
 > import Data.List.Split ( chunksOf )
 > import Diagrams.Prelude hiding ( sample, render )
 > import qualified Diagrams.Prelude as D
 > import Diagrams.Coordinates ( (&) )
 > import Diagrams.Backend.Cairo.CmdLine
-> 
+>
 > import Graphics.Rendering.Chart
 > import Data.Default.Class
 > import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
@@ -106,7 +106,7 @@ Uniform Sampling
 Boltzmann distribution
 
 $$
-\pi(\sigma) = \frac{\exp(-E(\sigma) / k_B T)}{Z(T)} 
+\pi(\sigma) = \frac{\exp(-E(\sigma) / k_B T)}{Z(T)}
 $$
 
 where the sum $T$ is the temperature, $k_B$ is Boltzmann's constant,
@@ -134,26 +134,26 @@ calculate offsets into the vector given a point's grid co-ordinates.
 > energy :: V.Vector Int => Double
 > energy v = 0.5 * (fromIntegral $ V.sum energyAux)
 >   where
-> 
+>
 >     energyAux = V.generate l f
-> 
+>
 >     l = V.length v
-> 
+>
 >     f m = c * d
 >       where
 >         i = m `mod` gridSize
 >         j = (m `mod` (gridSize * gridSize)) `div` gridSize
-> 
+>
 >         c = v V.! jc
 >         jc = gridSize * i + j
->         
+>
 >         d = n + e + s + w
-> 
+>
 >         n = v V.! jn
 >         e = v V.! je
 >         s = v V.! js
 >         w = v V.! jw
->     
+>
 >         jn = gridSize * ((i + 1) `mod` gridSize) + j
 >         js = gridSize * ((i - 1) `mod` gridSize) + j
 >         je = gridSize * i + ((j + 1) `mod` gridSize)
@@ -234,7 +234,7 @@ this set will contain $2^N$ elements. Let $P = \{ p_{ij} : i, j \in S
 \}$ be such that
 
 $$
-\sum_{j \in S} p_{ij} = 1 \, \forall i \in S 
+\sum_{j \in S} p_{ij} = 1 \, \forall i \in S
 $$
 
 
@@ -274,7 +274,7 @@ Another key question is, if there is a unique stationary distribution,
 will the $n$-th transion probabilities converge to that distribution
 (FIXME: really badly expressed but will do as a reminder).
 
-In the case of chains with a countably infinite state space, a 
+In the case of chains with a countably infinite state space, a
 
 Irreducibility
 --------------
@@ -332,7 +332,7 @@ Let $X_n$ be a Markov chain. A state $i$ is **recurrent** if
 
 $$
 {\mathbb P} (X_n = i \, \text{i.o.}) = 1
-$$ 
+$$
 
 The **first passage time** is defined as
 
@@ -442,31 +442,31 @@ Calculate energy:
 >                        , mcGrid          :: !(V.Vector Int)
 >                        }
 >   deriving Show
-> 
+>
 > gridSize :: Int
 > gridSize = 10
-> 
+>
 > measure :: Int
 > measure = 100
-> 
+>
 > nitt :: Int
 > nitt = 1000000
-> 
+>
 > tCrit :: Double
 > tCrit = 2.0 / log (1.0 + sqrt 2.0) - 0.1
-> 
+>
 > magnetization :: (V.Unbox a, Num a) => V.Vector a => a
 > magnetization = V.sum
-> 
->     
+>
+>
 > expDv :: Double -> V.Vector Double
 > expDv t = V.generate 9 f
 >   where
 >     f n | odd n = 0.0
 >     f n         = exp (((fromIntegral (8 - n)) - 4.0) * 2.0 / t)
-> 
+>
 > singleUpdate :: Int -> V.Vector Double -> McState -> (Int, Int, Double) -> McState
-> singleUpdate measure expDvT u (i, j, r) = -- D.trace (show $ mcMAvg u) $ 
+> singleUpdate measure expDvT u (i, j, r) = -- D.trace (show $ mcMAvg u) $
 >   McState { mcMagnetization = newMag
 >           , mcMAvg =
 >             if (mcCount u) `mod` measure == 0
@@ -483,32 +483,32 @@ Calculate energy:
 >     newGrid = if p > r
 >               then V.modify (\v -> M.write v jc (-c)) v
 >               else v
-> 
+>
 >     oldMag = mcMagnetization u
->     
+>
 >     newMag = if p > r
 >               then oldMag - 2 * (fromIntegral c)
 >               else oldMag
->     
+>
 >     v = mcGrid u
->     
+>
 >     p = expDvT V.! (4 + c * d)
-> 
+>
 >     c = v V.! jc
 >     jc = gridSize * i + j
-> 
+>
 >     d = n + e + s + w
-> 
+>
 >     n = v V.! jn
 >     e = v V.! je
 >     s = v V.! js
 >     w = v V.! jw
-> 
+>
 >     jn = gridSize * ((i + 1) `mod` gridSize) + j
 >     js = gridSize * ((i - 1) `mod` gridSize) + j
 >     je = gridSize * i + ((j + 1) `mod` gridSize)
 >     jw = gridSize * i + ((j - 1) `mod` gridSize)
-> 
+>
 > testData :: Int -> V.Vector (Int, Int, Double)
 > testData m =
 >   V.fromList $
@@ -519,10 +519,10 @@ Calculate energy:
 >            c <- sample (uniform (0 :: Int)    (gridSize - 1))
 >            v <- sample (uniform (0 :: Double)            1.0)
 >            return (r, c, v)
-> 
+>
 > trial :: McState -> Double -> V.Vector (Int, Int, Double) -> McState
 > trial s t = V.foldl (singleUpdate 1 (expDv t)) s
-> 
+>
 > trialInitState :: McState
 > trialInitState = McState { mcMagnetization = fromIntegral $
 >                                              magnetization trialGrid
@@ -531,7 +531,7 @@ Calculate energy:
 >                          , mcNumSamples = 0
 >                          , mcGrid = trialGrid
 >                         }
-> 
+>
 > trialGrid :: V.Vector Int
 > trialGrid = V.fromList $ concat $ initGridL
 >   where
@@ -546,10 +546,10 @@ Calculate energy:
 >                 , [ 1, -1,  1, -1, -1, -1, -1,  1,  1, -1]
 >                 , [-1, -1,  1,  1, -1, -1,  1,  1, -1,  1]
 >                 ]
-> 
+>
 > xs :: [Double]
 > xs = getTemps 4.0 0.5 100
-> 
+>
 > getTemps :: Double -> Double -> Int -> [Double]
 > getTemps h l n = [ m * x + c |
 >                    w <- [1..n],
@@ -557,25 +557,25 @@ Calculate energy:
 >   where
 >     m = (h - l) / (fromIntegral n - 1)
 >     c = l - m
-> 
+>
 > newGrids :: [McState]
 > newGrids = map (\t -> trial trialInitState t (testData nitt)) xs
-> 
+>
 > main :: IO ()
 > main = do print "Magnetization"
 >           mapM_ putStrLn $
 >             zipWith (\t x -> show t ++ " " ++
 >                              show (mcMAvg x / fromIntegral nitt)) xs newGrids
-> 
+>
 >           renderableToPNGFile errChart 500 500 "Magnetism.png"
 >           defaultMain $
 >             (chessBoard (mcGrid $ newGrids!!0) # D.translate (0&0)) <>
 >             (chessBoard (mcGrid $ newGrids!!1) # D.translate (12&0))
->           
+>
 > boardSq :: (Transformable b, HasStyle b, TrailLike b, V b ~ R2) =>
 >            Colour Double -> b
 > boardSq c = square 1 # lw 0 # fc c
-> 
+>
 > chessBoard :: (Monoid c, Semigroup c, Transformable c, HasStyle c,
 >                Juxtaposable c, HasOrigin c, TrailLike c, V c ~ R2) =>
 >               V.Vector Int -> c
@@ -586,7 +586,7 @@ Calculate energy:
 >     f (-1) = red
 >     f   1  = blue
 >     f _    = error "Unexpected spin"
-> 
+>
 > errChart :: Graphics.Rendering.Chart.Renderable ()
 > errChart = toRenderable layout
 >   where
@@ -596,20 +596,20 @@ Calculate energy:
 >               $ plot_lines_style  . line_color .~ opaque blue
 >               $ plot_lines_title .~ "error"
 >               $ def
-> 
+>
 >     layout = layout1_title .~ "Floating Point Error"
 >            $ layout1_plots .~ [Left (toPlot sinusoid1)]
 >            $ layout1_left_axis .~ errorAxis
 >            $ layout1_bottom_axis .~ stepSizeAxis
 >            $ def
-> 
+>
 >     errorAxis = laxis_title .~ "Minus log to base 2 of the error"
 >               $ def
-> 
+>
 >     stepSizeAxis = laxis_title .~ "Minus log to base 2 of the step size"
 >                  $ def
-> 
-> 
+>
+>
 > testData' :: Int -> V.Vector (Int, Int, Double)
 > testData' m =
 >   V.fromList $
@@ -620,7 +620,7 @@ Calculate energy:
 >            c <- sample (uniform (0 :: Int)    (gridSize - 1))
 >            v <- sample (uniform (0 :: Double)           1.0)
 >            return (r, c, v)
-> 
+>
 
 Bibliography and Resources
 --------------------------
