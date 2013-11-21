@@ -213,6 +213,18 @@ $$
 H \approx \sum_\sigma \frac{1}{2^N}\log_2 2^N = N
 $$
 
+We can do a bit better than this. At high temperatures, $\beta J \ll
+1$ and taking $B = 0$
+
+$$
+\begin{aligned}
+Z &= \sum_\sigma \exp\big(-\beta E(\sigma)\big) \\
+  &= \sum_\sigma \exp\bigg(\beta J \sum_{i, j} \sigma_i \sigma_j - B \sum_k \sigma_k\bigg) \\
+  &= \sum_\sigma \prod_{i, j} \exp\beta J \sigma_i \sigma_j
+\end{aligned}
+$$
+
+
 Thus uniform sampling will provide reasonable estimates.
 
 
