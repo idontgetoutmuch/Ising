@@ -224,6 +224,67 @@ Z &= \sum_\sigma \exp\big(-\beta E(\sigma)\big) \\
 \end{aligned}
 $$
 
+By defintion
+
+$$
+\begin{aligned}
+\cosh x &= \frac{e^x + e^{-x}}{2} \\
+\sinh x &= \frac{e^x - e^{-x}}{2}
+\end{aligned}
+$$
+
+Thus
+
+$$
+\begin{aligned}
+\exp \beta J \sigma_i \sigma_j &= \cosh\beta J + \sigma_i\sigma_j\sinh \beta J \\
+                               &= \cosh\beta J (1 + \sigma_i\sigma_j\tanh \beta J)
+\end{aligned}
+$$
+
+We can therefore re-write the partition function as
+
+$$
+\begin{aligned}
+Z &= \sum_\sigma \prod_{i, j} \cosh\beta J (1 + \sigma_i\sigma_j\tanh \beta J) \\
+  &= (\cosh \beta J)^{4N/2} \sum_\sigma \prod_{i, j} (1 + \sigma_i\sigma_j\tanh \beta J) \\
+\end{aligned}
+$$
+
+where the factor 2 is because we count the exchange interaction twice
+for each pair of atoms and the factor 4 is because each atom is
+assumed to only interact with 4 neighbours.
+
+Since at high temperatures, by assumption, we have $\beta J \ll 1$
+then $\tanh \beta J \ll 1$ also.
+
+Thus
+
+$$
+Z \approx (\cosh \beta J)^{2N}\sum_\sigma 1 = 2^N(\cosh \beta J)^{2N}
+$$
+
+Calculating the free energy
+
+$$
+\begin{aligned}
+F &= -k_B T \ln Z \\
+  &= -k_B T N \ln 2 -k_B T 2 N \ln (\cosh \beta J) \\
+  &\approx -k_B T N \ln 2 -k_B T N (\beta J)^2 \\
+  &= -k_B T N \ln 2 - N\frac{J^2}{k_B T} \\
+\end{aligned}
+$$
+
+From this we can determine the (Boltzmann) entropy
+
+$$
+S = k_B N (\ln 2 - (\beta J)^2) \approx k_B N \ln 2
+$$
+
+which agrees with our rather hand-wavy derivation of the (Shannon)
+entropy at high temperatures.
+
+At low temperatures we have
 
 Thus uniform sampling will provide reasonable estimates.
 
