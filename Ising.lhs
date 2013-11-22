@@ -284,7 +284,56 @@ $$
 which agrees with our rather hand-wavy derivation of the (Shannon)
 entropy at high temperatures.
 
-At low temperatures we have
+At low temperatures the story is quite different.
+We can calculate the ground state energy where all
+the spins are in the same direction.
+
+$$
+E_0 = -J\sum_{i,j}\sigma_i\sigma_j = -4JN / 2 = -2JN
+$$
+
+And we can assume that at low temperatures that flipped spins are
+isolated from other flipped spins. The energy for an atom in the
+ground state is -4J and thus the energy change if it flips is 8J. Thus
+the energy at low temperatures is
+
+$$
+E_1 \approx E_0 + 8J\sum_i (\sigma_i + 1) / 2
+$$
+
+The partition function is
+
+$$
+\begin{aligned}
+Z &= 2\sum_\sigma \exp{-\beta \bigg(E_0 + 8J\sum_i (\sigma_i + 1) /2\bigg)} \\
+  &= 2\exp{-\beta E_0} \prod_i \sum_{\sigma_i = \pm 1} \exp{-8\beta J(\sigma_i + 1) / 2} \\
+  &= 2\exp{-\beta E_0} (1 + \exp{-8\beta J})^N
+\end{aligned}
+$$
+
+Again we can calculate the free energy and ince we are doing this
+calculation to get a rough estimate of the entropy we can approximate
+further.
+
+$$
+\begin{aligned}
+F &= -k_B T \ln Z \\
+  &= -k_B (T \ln 2 - T E_0 + T N \ln (1 + \exp{-8\beta J})) \\
+  &\approx -k_B (T \ln 2 - T E_0T + T N \exp{-8\beta J})
+\end{aligned}
+$$
+
+From this we can determine the (Boltzmann) entropy
+
+$$
+\begin{aligned}
+S &= - \frac{\partial F}{\partial T} \\
+  &= k_B(\ln 2 + \frac{\partial}{\partial T} \exp{-8\beta J}) \\
+  &= k_B(\ln 2 + \frac{\partial}{\partial T} \frac{1}{\beta}\exp{-8\beta J}) \\
+  &= k_B(\ln 2 + \frac{\partial \beta}{\partial T} \frac{\partial}{\partial \beta}\frac{1}{\beta}\exp{-8\beta J}) \\
+  &= k_B(\ln 2 + \frac{\partial \beta}{\partial T} \frac{\partial}{\partial \beta}\frac{1}{\beta}\exp{-8\beta J}) \\
+\end{aligned}
+$$
 
 Thus uniform sampling will provide reasonable estimates.
 
