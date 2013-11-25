@@ -319,31 +319,51 @@ $$
 \begin{aligned}
 F &= -k_B T \ln Z \\
   &= -k_B (T \ln 2 - T E_0 + T N \ln (1 + \exp{-8\beta J})) \\
-  &\approx -k_B (T \ln 2 - T E_0T + T N \exp{-8\beta J})
+  &\approx -k_B (T \ln 2 - T E_0 + T N \exp{-8\beta J})
 \end{aligned}
 $$
 
-From this we can determine the (Boltzmann) entropy
+From this we can determine the (Boltzmann) entropy. Using the fact that $\beta = 1 / k_B T$ and thus that
+
+$$
+\frac{\partial \beta}{\partial T} = - \frac{1}{k_B T^2} = -k_B\beta^2
+$$
+
+we have
 
 $$
 \begin{aligned}
 S &= - \frac{\partial F}{\partial T} \\
-  &= k_B(\ln 2 + \frac{\partial}{\partial T} \exp{-8\beta J}) \\
-  &= k_B(\ln 2 + \frac{\partial}{\partial T} \frac{1}{\beta}\exp{-8\beta J}) \\
-  &= k_B(\ln 2 + \frac{\partial \beta}{\partial T} \frac{\partial}{\partial \beta}\frac{1}{\beta}\exp{-8\beta J}) \\
-  &= k_B(\ln 2 + \frac{\partial \beta}{\partial T} \frac{\partial}{\partial \beta}\frac{1}{\beta}\exp{-8\beta J}) \\
+  &= k_B\bigg(\ln 2 + N\frac{\partial}{\partial T} \exp{-8\beta J}\bigg) \\
+  &= k_B\bigg(\ln 2 + N\frac{\partial}{\partial T} \frac{1}{\beta}\exp{-8\beta J}\bigg) \\
+  &= k_B\bigg(\ln 2 + N\frac{\partial \beta}{\partial T} \frac{\partial}{\partial \beta}\frac{1}{\beta}\exp{-8\beta J}\bigg) \\
+  &= k_B\bigg(\ln 2 + N\frac{\partial \beta}{\partial T} \frac{\partial}{\partial \beta}\frac{1}{\beta}\exp{-8\beta J}\bigg) \\
+  &= k_B\bigg(\ln 2 + N\frac{\partial \beta}{\partial T}
+     \bigg(-\frac{1}{\beta^2}\exp{-8\beta J} -
+     \frac{8J}{\beta}\exp{-8\beta J}\bigg) \\
+  &= k_B\bigg(\ln 2 +
+     N\exp{-8\beta J} +
+     8JN\beta\exp{-8\beta J}\bigg)
 \end{aligned}
 $$
 
+The critical temperature (as we shall obtain by simulation) given by
+[Onsager's exact
+result](http://en.wikipedia.org/wiki/Ising_model#Onsager.27s_exact_solution)
+in 2d is
+
+$$
+\frac{1}{\beta} = k_BT_{\text Crit} = \frac{2J}{\ln(\sqrt{2}+1)} \approx 2.269J
+$$
+
+Plugging this in we get
+
+    [ghci]
+    exp (-8.0/2.269) * (1.0 + 8.0 / 2.269)
+
+Thus the (Shannon) entropy is about 0.13 at the interesting temperature.
+
 Thus uniform sampling will provide reasonable estimates.
-
-
-
-
-
-Afterword: This sub-section could do with more expansion but this
-article is already overlong.
-
 
 
 As usual we work on a measure space $(\Omega, {\mathbb F}, \mu)$.
