@@ -11,8 +11,16 @@ Introduction
 
 About a year ago there was a reddit post on the [Ising Model in
 Haskell](http://www.reddit.com/r/haskell/comments/16uc2x/ising_model_in_haskell). The
-discussion seems to have fizzled out but Ising models look like a
-perfect fit for Haskell using [repa](http://hackage.haskell.org/package/repa).
+discussion seems to have fizzled out but Ising models looked like a
+perfect fit for Haskell using
+[repa](http://hackage.haskell.org/package/repa). In the end it turns
+out that they are *not* a good fit for repa. As we can get some
+parallelism at a gross level but this is in a way that does not really
+show off Haskell's strengths in this area. In any event, it makes a
+good example for the
+[vector](http://hackage.haskell.org/package/vector) package and random
+number generation using the
+[random-fu](http://hackage.haskell.org/package/random-fu) package.
 
 The [Ising model](http://en.wikipedia.org/wiki/Ising_model) was (by
 [Stigler's
@@ -21,12 +29,30 @@ proposed by Lenz in 1920 as a model for ferromagnetism, that is, the
 magnetism exhibited by bar magnets. The phenomenon ferromagnetism is
 so named because it was first observed in iron (Latin ferrum and
 chemical symbol Fe). It is also exhibited, for example, by rare earths
-such as neodymium.
+such as gadolinium. Ferromagnetic materials lose their magnetism at a
+critical temperature: the [Curie
+temperature](http://en.wikipedia.org/wiki/Curie_temperature) (named
+after Pierre not his more famous wife). This is an example of a phase
+transition (ice melting into water is a more familiar example).
 
-The Ising model can also be used to describe phase transitions in alloys.
+The Ising model (at least in 2 dimensions) predicts this phase
+transition and can also be used to describe phase transitions in
+alloys.
+
+Magnetism
+---------
 
 Following Ziman [@Ziman:Principles], we assume that each atom in the
-ferromagnetic material behaves like a small magnet.
+ferromagnetic material behaves like a small magnet. According to
+[Hund's
+rules](http://hyperphysics.phy-astr.gsu.edu/hbase/atomic/hund.html),
+we would expect upaired electrons in the $d$ and $f$ shells for
+example in the transition elements and rare earths. However, the
+magnetic interaction between atoms is far too small to account for
+ferromagnetism. In particular, ferromagnetic materials undergo a phase
+transition at the . For Iron this is 1043K and the
+magnetic interaction between atoms cannot account for this by some
+margin.
 
 This is good for ferromagnetism: http://en.wikipedia.org/wiki/Ferromagnetism and this contains Curie temperatures: http://hyperphysics.phy-astr.gsu.edu/hbase/solids/ferro.html
 
@@ -361,15 +387,28 @@ Plugging this in we get
     [ghci]
     exp (-8.0/2.269) * (1.0 + 8.0 / 2.269)
 
-Thus the (Shannon) entropy is about 0.13 at the interesting temperature.
+Thus the (Shannon) entropy is about 0.13N at the interesting
+temperature and is about N at high temperatures. So uniform sampling
+would require $\sim 2^{(N - N)}$ samples at high temperatures but $\sim
+2^{(N - 0.13N)} \approx 2^{N /2}$ at temperatures of interest. Even for
+our modest $10 \times 10$ grid this is $2^{50} \approx 10^{17}$ samples!
 
-Thus uniform sampling will provide reasonable estimates.
+Fortunately, Metropolis and his team [@Metropolis53] discovered a way
+of constructing a Markov chain with a limiting distribution of the
+distribution required which does not require the evaluation of the
+partition function and which converges in a reasonable time (although
+theoretical results substantiating this latter point seem to be hard
+to come by).
 
+Markov Chains
+=============
+
+Markov first studied the stochastic processes that came to be named after him in 1906.
+
+We follow [@DBLP:books/daglib/0095301], [@Beichl615768],
+[@Greenbert95] and [@Gravner:mat135a:Online].
 
 As usual we work on a measure space $(\Omega, {\mathbb F}, \mu)$.
-
-
-http://streaming.stat.iastate.edu/~stat444x_B/Literature/ChibGreenberg.pdf
 
 Let $S$ be a finite set. In the case of an Ising model with $N$ cells,
 this set will contain $2^N$ elements. Let $P = \{ p_{ij} : i, j \in S
@@ -378,18 +417,6 @@ this set will contain $2^N$ elements. Let $P = \{ p_{ij} : i, j \in S
 $$
 \sum_{j \in S} p_{ij} = 1 \, \forall i \in S
 $$
-
-
-Markov Chains
-=============
-
-Metropolis and his team [@Metropolis53] discovered a way of
-constructing a Markov chain with a limiting distribution of the
-distribution required.
-
-Markov first studied the stochastic processes that came to be named after him in 1906.
-
-We follow [@DBLP:books/daglib/0095301], [@Beichl615768] and [@Gravner:mat135a:Online].
 
 
 Stationarity
