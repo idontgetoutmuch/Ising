@@ -42,26 +42,44 @@ alloys.
 Magnetism
 ---------
 
-Following Ziman [@Ziman:Principles], we assume that each atom in the
-ferromagnetic material behaves like a small magnet. According to
-[Hund's
+Following Ziman [@Ziman:Principles] and Reif [@reif2009fundamentals],
+we assume that each atom in the ferromagnetic material behaves like a
+small magnet. According to [Hund's
 rules](http://hyperphysics.phy-astr.gsu.edu/hbase/atomic/hund.html),
 we would expect upaired electrons in the $d$ and $f$ shells for
-example in the transition elements and rare earths. However, the
-magnetic interaction between atoms is far too small to account for
-ferromagnetism. In particular, ferromagnetic materials undergo a phase
-transition at the . For Iron this is 1043K and the
-magnetic interaction between atoms cannot account for this by some
-margin.
+example in the transition elements and rare earths and these would
+supply the magnetic moment. However, the magnetic interaction between
+atoms is far too small to account for ferromagnetism. For Iron, for
+example, the Curie temperature is 1043K and the magnetic interaction
+between atoms cannot account for this by some margin. There is a
+quantum mechanical effect called the exchange interaction which is a
+consequence of the Pauli exclusion principle. Two electrons with the
+same spin on neighbouring atoms cannot get too close to each other. If
+the electrons have anti-parallel spins then the exclusion principle
+does not apply and there is no restriction on how close they can get
+to each other. Thus the electrostatic interaction between electrons on
+neighbouring atoms depends on whether spins are parallel or
+anti-parallel. We can thus write the Hamiltonian in the form:
 
-This is good for ferromagnetism: http://en.wikipedia.org/wiki/Ferromagnetism and this contains Curie temperatures: http://hyperphysics.phy-astr.gsu.edu/hbase/solids/ferro.html
+$$
+E = -J\sum_{\langle i, j\rangle} \sigma_i \sigma_j - B\sum_k \sigma_k
+$$
 
-Quotes from http://arxiv.org/pdf/0905.1629.pdf:
+Where
 
-the drosophila of statistical mechanics
+ * The notation $\langle i, j\rangle$ means we sum over all the
+nearest neighbours in the lattice;
+ * $H$ is the applied magnetic field (note we use E for the Hamiltonian);
+ * And $J$ is 
 
-embarrassingly parallel
+N is the total number of spins, J is a coupling constant expressing
+the strength of the interaction between neighboring spins
 
+Depending on the balance between the Pauli Principle and the
+electrostatic interaction energy of the electrons, the exchange
+integral may be positive or negative corresponding to parallel spins
+(ferromagnetism) or antiparallel spins (antiferromagnetism or
+ferrimagnetism).
 
 Acknowledgements
 ================
