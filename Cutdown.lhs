@@ -93,7 +93,6 @@ Haskell Preamble
 
 Pragmas and imports to which only the over-enthusiastic reader need pay attention.
 
-
 > {-# OPTIONS_GHC -Wall                      #-}
 > {-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
 > {-# OPTIONS_GHC -fno-warn-type-defaults    #-}
@@ -123,9 +122,14 @@ FIXME: End of interlude
 >        , xs
 >        , newGrids
 >        , main
+>        , boardSq
+>        , chessBoard
+>        , testData'
 >        ) where
 >
-> import Diagrams ( example )
+> import Diagrams ( example
+>                 , errChart
+>                 )
 
 > import qualified Data.Vector.Unboxed as V
 > import qualified Data.Vector.Unboxed.Mutable as M
@@ -134,21 +138,15 @@ FIXME: End of interlude
 > import Data.Random
 > import Control.Monad.State
 
-import Data.List.Split ( chunksOf )
+> import Data.List.Split ( chunksOf )
 
-import Diagrams.Prelude hiding ( sample, render )
+> import Diagrams.Prelude hiding ( sample, render )
 
-import qualified Diagrams.Prelude as D
-import Diagrams.Coordinates ( (&) )
+FIXME: Knight's tour interlude (pun intended)
 
 > import Diagrams.Backend.Cairo.CmdLine
 
-import Graphics.Rendering.Chart hiding ( moveTo )
-import Data.Default.Class
-
-import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
-
-import Control.Lens hiding ( (#), (&), moveTo )
+> import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
 
 Other
 =====
@@ -783,11 +781,38 @@ Calculate energy:
 >           --   zipWith (\t x -> show t ++ " " ++
 >           --                    show (mcMAvg x / fromIntegral nitt)) xs newGrids
 >
->           -- renderableToPNGFile errChart 500 500 "Magnetism.png"
+>           renderableToPNGFile (errChart xs mcMAvg trial trialInitState testData nitt)
+>                               500 500 "Magnetism.png"
 >           defaultMain $ example
 >             -- (chessBoard (mcGrid $ newGrids!!0) # D.translate (0 & 0)) <>
 >             -- (chessBoard (mcGrid $ newGrids!!1) # D.translate (12 & 0))
 
+> boardSq :: (Transformable b, HasStyle b, TrailLike b, V b ~ R2) =>
+>            Colour Double -> b
+> boardSq c = square 1 # lw 0 # fc c
+>
+> chessBoard :: (Monoid c, Semigroup c, Transformable c, HasStyle c,
+>                Juxtaposable c, HasOrigin c, TrailLike c, V c ~ R2) =>
+>               V.Vector Int -> c
+> chessBoard v
+>   = vcat $ map hcat $ map (map boardSq)
+>   $ chunksOf gridSize $ map f $ V.toList v
+>   where
+>     f (-1) = red
+>     f   1  = blue
+>     f _    = error "Unexpected spin"
+>
+> testData' :: Int -> V.Vector (Int, Int, Double)
+> testData' m =
+>   V.fromList $
+>   evalState (replicateM m x)
+>   (pureMT 1)
+>   where
+>     x = do r <- sample (uniform (0 :: Int)    (gridSize - 1))
+>            c <- sample (uniform (0 :: Int)    (gridSize - 1))
+>            v <- sample (uniform (0 :: Double)           1.0)
+>            return (r, c, v)
+>
 
 ```{.dia width='500'}
 import Cutdown

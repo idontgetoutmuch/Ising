@@ -3,7 +3,8 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Diagrams (
-  example
+    example
+  , errChart
   ) where
 
 import Diagrams.Prelude
@@ -11,6 +12,12 @@ import Diagrams.Coordinates ( (&) )
 
 import Data.List (minimumBy, tails, (\\))
 import Data.Ord (comparing)
+
+import Control.Lens hiding ( (#), (&), moveTo )
+import Graphics.Rendering.Chart hiding ( moveTo )
+import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
+import Data.Default.Class
+
 
 type Square = (Int, Int)
 
@@ -63,3 +70,25 @@ example =
     tourStart = (1,3)
     tour      = knightTour tourStart
     tourEnd   = last tour
+
+-- errChart :: Graphics.Rendering.Chart.Renderable ()
+errChart xs mcMAvg trial trialInitState testData nitt = toRenderable layout
+  where
+    sinusoid1 = plot_lines_values .~ [[ (x, abs $ mcMAvg $
+                                            trial trialInitState x (testData nitt))
+                                      | x <- xs]]
+              $ plot_lines_style  . line_color .~ opaque blue
+              $ plot_lines_title .~ "error"
+              $ def
+
+    layout = layout1_title .~ "Floating Point Error"
+           $ layout1_plots .~ [Left (toPlot sinusoid1)]
+           $ layout1_left_axis .~ errorAxis
+           $ layout1_bottom_axis .~ stepSizeAxis
+           $ def
+
+    errorAxis = laxis_title .~ "Minus log to base 2 of the error"
+              $ def
+
+    stepSizeAxis = laxis_title .~ "Minus log to base 2 of the step size"
+                 $ def
