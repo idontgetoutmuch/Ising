@@ -93,6 +93,7 @@ Haskell Preamble
 
 Pragmas and imports to which only the over-enthusiastic reader need pay attention.
 
+
 > {-# OPTIONS_GHC -Wall                      #-}
 > {-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
 > {-# OPTIONS_GHC -fno-warn-type-defaults    #-}
@@ -101,43 +102,53 @@ Pragmas and imports to which only the over-enthusiastic reader need pay attentio
 > {-# OPTIONS_GHC -fno-warn-orphans          #-}
 
 > {-# LANGUAGE TypeFamilies                  #-}
-
-FIXME: Knight's tour interlude (pun intended)
-
-> {-# LANGUAGE NoMonomorphismRestriction #-}
+> {-# LANGUAGE NoMonomorphismRestriction     #-}
 
 FIXME: End of interlude
 
-> module Ising (
->        McState (..)
->        , main -- FIXME: For now just to get rid of warnings
->        , example
->        , mySq
+> module Cutdown (
+>          example
+>        , energy
+>        , McState(..)
+>        , measure
+>        , nitt
+>        , expDv
+>        , tCrit
+>        , singleUpdate
+>        , magnetization
+>        , testData
+>        , trialInitState
+>        , trial
+>        , getTemps
+>        , xs
+>        , newGrids
+>        , main
 >        ) where
 >
+> import Diagrams ( example )
+
 > import qualified Data.Vector.Unboxed as V
 > import qualified Data.Vector.Unboxed.Mutable as M
+
 > import Data.Random.Source.PureMT
 > import Data.Random
 > import Control.Monad.State
->
-> import Data.List.Split ( chunksOf )
-> import Diagrams.Prelude hiding ( sample, render )
-> import qualified Diagrams.Prelude as D
-> import Diagrams.Coordinates ( (&) )
+
+import Data.List.Split ( chunksOf )
+
+import Diagrams.Prelude hiding ( sample, render )
+
+import qualified Diagrams.Prelude as D
+import Diagrams.Coordinates ( (&) )
+
 > import Diagrams.Backend.Cairo.CmdLine
->
-> import Graphics.Rendering.Chart hiding ( moveTo )
-> import Data.Default.Class
-> import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
-> import Control.Lens hiding ( (#), (&), moveTo )
 
-FIXME: Knight's tour interlude (pun intended)
+import Graphics.Rendering.Chart hiding ( moveTo )
+import Data.Default.Class
 
-> import           Data.List                      (minimumBy, tails, (\\))
-> import           Data.Ord                       (comparing)
+import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
 
-FIXME: End of interlude
+import Control.Lens hiding ( (#), (&), moveTo )
 
 Other
 =====
@@ -192,6 +203,9 @@ As an aside, we represent each state by a *Vector* of *Int*. No doubt
 more efficient representations can be implemented. We also have to
 calculate offsets into the vector given a point's grid co-ordinates.
 
+> gridSize :: Int
+> gridSize = 10
+>
 > energy :: (Fractional a, Integral a1, M.Unbox a1) => V.Vector a1 -> a
 > -- energy :: V.Vector Int => Double
 > energy v = 0.5 * (fromIntegral $ V.sum energyAux)
@@ -648,9 +662,6 @@ Calculate energy:
 >                        }
 >   deriving Show
 >
-> gridSize :: Int
-> gridSize = 10
->
 > measure :: Int
 > measure = 100
 >
@@ -753,9 +764,6 @@ Calculate energy:
 >                 , [-1, -1,  1,  1, -1, -1,  1,  1, -1,  1]
 >                 ]
 >
-> xs :: [Double]
-> xs = getTemps 4.0 0.5 100
->
 > getTemps :: Double -> Double -> Int -> [Double]
 > getTemps h l n = [ m * x + c |
 >                    w <- [1..n],
@@ -764,6 +772,8 @@ Calculate energy:
 >     m = (h - l) / (fromIntegral n - 1)
 >     c = l - m
 >
+> xs :: [Double]
+> xs = getTemps 4.0 0.5 100
 > newGrids :: [McState]
 > newGrids = map (\t -> trial trialInitState t (testData nitt)) xs
 >
@@ -777,140 +787,9 @@ Calculate energy:
 >           defaultMain $ example
 >             -- (chessBoard (mcGrid $ newGrids!!0) # D.translate (0 & 0)) <>
 >             -- (chessBoard (mcGrid $ newGrids!!1) # D.translate (12 & 0))
->
-> boardSq :: (Transformable b, HasStyle b, TrailLike b, V b ~ R2) =>
->            Colour Double -> b
-> boardSq c = square 1 # lw 0 # fc c
->
-> chessBoard :: (Monoid c, Semigroup c, Transformable c, HasStyle c,
->                Juxtaposable c, HasOrigin c, TrailLike c, V c ~ R2) =>
->               V.Vector Int -> c
-> chessBoard v
->   = vcat $ map hcat $ map (map boardSq)
->   $ chunksOf gridSize $ map f $ V.toList v
->   where
->     f (-1) = red
->     f   1  = blue
->     f _    = error "Unexpected spin"
->
-> errChart :: Graphics.Rendering.Chart.Renderable ()
-> errChart = toRenderable layout
->   where
->     sinusoid1 = plot_lines_values .~ [[ (x, abs $ mcMAvg $
->                                             trial trialInitState x (testData nitt))
->                                       | x <- xs]]
->               $ plot_lines_style  . line_color .~ opaque blue
->               $ plot_lines_title .~ "error"
->               $ def
->
->     layout = layout1_title .~ "Floating Point Error"
->            $ layout1_plots .~ [Left (toPlot sinusoid1)]
->            $ layout1_left_axis .~ errorAxis
->            $ layout1_bottom_axis .~ stepSizeAxis
->            $ def
->
->     errorAxis = laxis_title .~ "Minus log to base 2 of the error"
->               $ def
->
->     stepSizeAxis = laxis_title .~ "Minus log to base 2 of the step size"
->                  $ def
->
->
-> testData' :: Int -> V.Vector (Int, Int, Double)
-> testData' m =
->   V.fromList $
->   evalState (replicateM m x)
->   (pureMT 1)
->   where
->     x = do r <- sample (uniform (0 :: Int)    (gridSize - 1))
->            c <- sample (uniform (0 :: Int)    (gridSize - 1))
->            v <- sample (uniform (0 :: Double)           1.0)
->            return (r, c, v)
->
 
-Knight's Tour (to be modified duh)
-----------------------------------
-
-A relatively well-known puzzle is to find a sequence of moves by which
-a knight can visit every square of a chessboard exactly once, without
-repeating any squares.  This example computes such a tour and
-visualizes the solution.
-
-First, we compute a tour by a brute force depth-first search (it does
-not take very long).  This code is adapted from the [code found
-here](http://rosettacode.org/wiki/Knight%27s_tour#Haskell).
-
-> type Square = (Int, Int)
->
-> board :: [Square]
-> board = [ (x,y) | x <- [0..7], y <- [0..7] ]
->
-> knightMoves :: Square -> [Square]
-> knightMoves (x,y) = filter (flip elem board) jumps
->   where jumps = [ (x+i,y+j) | i <- jv, j <- jv, abs i /= abs j ]
->         jv    = [1,-1,2,-2]
->
-> knightTour :: Square -> [Square]
-> knightTour sq = knightTour' [sq]
->   where
->     knightTour' moves@(lastMove:_)
->         | null candMoves = reverse moves
->         | otherwise = knightTour' $ newSquare : moves
->       where newSquare   = minimumBy (comparing (length . findMoves)) candMoves
->             candMoves   = findMoves lastMove
->             findMoves s = knightMoves s \\ moves
-
-Now we can go about visualizing a tour.  First, let's draw a chessboard:
-
-> boardSq' c = square 1 # lw 0 # fc c
->
-> chessBoard' n
->   = vcat . map hcat . map (map boardSq')
->   . take n . map (take n) . tails
->   $ cycle [saddlebrown, antiquewhite]
-
-Now, we need a way to convert `Square` coordinates (a pair of numbers
-in the range 0-7) into actual coordinates on the chessboard.  Since
-the chessboard ends up with its local origin in the center of the
-top-left square, all we need to do is negate the $y$-coordinate:
-
-> squareToPoint :: Square -> P2
-> squareToPoint (x,y) = fromIntegral x & negate (fromIntegral y)
-
-To draw a knight on a given square, we load an image of a knight, size
-it to fit a square, and translate it appropriately:
-
-> knight sq
->   = circle 1.0 -- image "../../doc/static/white-knight.png" 1 1
->   # moveTo (squareToPoint sq)
-
-Finally, given a tour, we turn it into a path using `fromVertices`,
-and decorate the vertices with dots.
-
-> drawTour tour = tourPoints <> stroke tourPath
->   where
->     tourPath   = fromVertices . map squareToPoint $ tour
->     tourPoints = decoratePath tourPath (repeat dot)
->     dot = circle 0.05 # fc black
-
-Putting it all together:
-
-> example =
->   mconcat
->   [ knight tourStart
->   , knight tourEnd
->   , drawTour tour
->   , chessBoard' 8
->   ]
->   where
->     tourStart = (1,3)
->     tour      = knightTour tourStart
->     tourEnd   = last tour
 
 ```{.dia width='500'}
-import Ising
+import Cutdown
 dia = example
 ```
-
-Bibliography and Resources
---------------------------
