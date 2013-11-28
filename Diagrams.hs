@@ -4,7 +4,6 @@
 
 module Diagrams (
     example
-  , example1
   , errChart
   ) where
 
@@ -22,30 +21,18 @@ import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
 import Graphics.Rendering.Chart.Backend.Diagrams
 import Data.Default.Class
 
-import System.IO.Unsafe
-
 
 type Square = (Int, Int)
 
 board :: [Square]
 board = [ (x,y) | x <- [0..7], y <- [0..7] ]
 
-knightMoves :: Square -> [Square]
-knightMoves (x,y) = filter (flip elem board) jumps
-  where jumps = [ (x+i,y+j) | i <- jv, j <- jv, abs i /= abs j ]
-        jv    = [1,-1,2,-2]
-
-knightTour :: Square -> [Square]
-knightTour sq = knightTour' [sq]
+boardSq' c = arr <> square 1 # lw 0 # fc c
   where
-    knightTour' moves@(lastMove:_)
-        | null candMoves = reverse moves
-        | otherwise = knightTour' $ newSquare : moves
-      where newSquare   = minimumBy (comparing (length . findMoves)) candMoves
-            candMoves   = findMoves lastMove
-            findMoves s = knightMoves s \\ moves
-
-boardSq' c = square 1 # lw 0 # fc c
+    arr = arrowBetween' (with & arrowHead .~ spike & arrowTail .~ quill) sPt nPt
+          # centerXY
+    sPt = p2 (0.50, 0.10)
+    nPt = p2 (0.50, 0.70)
 
 chessBoard' n
   = vcat . map hcat . map (map boardSq')
@@ -55,42 +42,9 @@ chessBoard' n
 squareToPoint :: Square -> P2
 squareToPoint (x,y) = (^&) (fromIntegral x) (negate (fromIntegral y))
 
-sq = square 2 # showOrigin # lc darkgray # lw 0.07
-ds = (sq # named "left") ||| strutX 3 ||| (sq # named "right")
+example = chessBoard' 8
 
-shaft  = cubicSpline False ( map p2 [(0, 0), (1, 0), (1, 0.2), (2, 0.2)])
-
-example1 = ds # connect' (with & arrowHead .~ dart & headSize .~ 0.6
-                               & tailSize .~ 0.5 & arrowTail .~ quill
-                               & shaftStyle %~ lw 0.02 & arrowShaft .~ shaft)
-                               "left" "right" # pad 1.1
-
-sPt = p2 (0.20, 0.20)
-ePt = p2 (2.85, 0.85)
-
--- We use small blue and red circles to mark the start and end points.
-dot  = circle 0.02 # lw 0
-sDot = dot # fc blue # moveTo sPt
-eDot = dot # fc red  # moveTo ePt
-
-example2 = ( sDot <> eDot <> arrowBetween sPt ePt)
-           # centerXY # pad 1.1
-
-drawTour tour = tourPoints <> stroke tourPath
-  where
-    tourPath   = fromVertices . map squareToPoint $ tour
-    tourPoints = decoratePath tourPath (repeat dot)
-    dot = circle 0.05 # fc black
-
-example =
-  mconcat
-  [ drawTour tour
-  , chessBoard' 8
-  ]
-  where
-    tourStart = (1,3)
-    tour      = knightTour tourStart
-    tourEnd   = last tour
+-- FIXME: The arguments were done for expediency
 
 -- errChart :: Graphics.Rendering.Chart.Renderable ()
 errChart xs mcMAvg trial trialInitState testData nitt = toRenderable layout

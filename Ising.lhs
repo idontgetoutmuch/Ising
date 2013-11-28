@@ -152,7 +152,6 @@ FIXME: End of interlude
 >        ) where
 >
 > import Diagrams ( example
->                 , example1
 >                 , errChart
 >                 )
 
@@ -809,16 +808,9 @@ Calculate energy:
 >           mainRender (DiagramOpts (Just 500) (Just 500) "FooBar.png"
 >                      , DiagramLoopOpts False Nothing 0)
 >                      (circle 1.0 :: Diagram B R2)
->           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/example1.png"
->                      , DiagramLoopOpts False Nothing 0)
->                      (example1 :: Diagram B R2)
 >           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/example.png"
 >                      , DiagramLoopOpts False Nothing 0)
 >                      (example :: Diagram B R2)
->           putStrLn "Hello"
->           -- defaultMain $ example
->             -- (chessBoard (mcGrid $ newGrids!!0) # D.translate (0 & 0)) <>
->             -- (chessBoard (mcGrid $ newGrids!!1) # D.translate (12 & 0))
 
 > boardSq :: (Transformable b, HasStyle b, TrailLike b, V b ~ R2) =>
 >            Colour Double -> b
