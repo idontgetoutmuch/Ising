@@ -39,8 +39,31 @@ The Ising model (at least in 2 dimensions) predicts this phase
 transition and can also be used to describe phase transitions in
 alloys.
 
+Abstracting the Ising model from its physical origins, one can think
+of it rather like Conway's Game of Life: there is a grid and each cell
+on the grid is updated depending on the state of its neighbours. The
+difference with the Game of Life is that the updates are not
+deterministic but are random with the randomness selecting which cell
+gets updated as well as whether it gets updated. Thus we cannot update
+all the cells in parallel as would happen if we used repa. The reader
+only interested in this abstraction can go straight to the
+implementation.
+
+On the other hand, the physics and the Monte Carlo method used to
+simulate the model are of considerable interest in their own
+right. Readers interested in the Monte Carlo method can skip the
+physics and go to Monte Carlo Estimation. Readers interested in the
+physics can start with the sction on Magnetism.
+
+One area with no exposition is that of statistical physics; the
+Boltzmann distribution is taken for granted. For an excellent
+introduction to the subject see David Tong's lecture notes
+(@Tong:Statphys:Online).
+
+Definitions are in **bold**.
+
 Magnetism
----------
+=========
 
 Following Ziman [@Ziman:Principles] and Reif [@reif2009fundamentals],
 we assume that each atom in the ferromagnetic material behaves like a
@@ -75,13 +98,14 @@ nearest neighbours in the lattice;
  * The range of each index is $1 \ldots M$ where $N = M \times M$ is
 the total number of atoms;
 
- * And $J$ the *coupling constant* expressing the strength of the
+ * And $J$ the **coupling constant** expressing the strength of the
 interaction between neighboring spins and depending on the balance
-between the Pauli Principle and the electrostatic interaction energy
-of the electrons, this may be positive corresponding to parallel spins
-(ferromagnetism which is the case we consider in this article) or
-negative corresponding to antiparallel spins (antiferromagnetism or
-ferrimagnetism which we consider no further).
+between the Pauli exclusion principle and the electrostatic
+interaction energy of the electrons, this may be positive
+corresponding to parallel spins (ferromagnetism which is the case we
+consider in this article) or negative corresponding to antiparallel
+spins (antiferromagnetism or ferrimagnetism which we consider no
+further).
 
 Acknowledgements
 ================
@@ -128,6 +152,7 @@ FIXME: End of interlude
 >        ) where
 >
 > import Diagrams ( example
+>                 , example1
 >                 , errChart
 >                 )
 
@@ -141,11 +166,9 @@ FIXME: End of interlude
 > import Data.List.Split ( chunksOf )
 
 > import Diagrams.Prelude hiding ( sample, render )
-
-FIXME: Knight's tour interlude (pun intended)
-
+> import Diagrams.Backend.Cairo
+> import Diagrams.Backend.CmdLine
 > import Diagrams.Backend.Cairo.CmdLine
-
 > import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
 
 Other
@@ -781,9 +804,19 @@ Calculate energy:
 >           --   zipWith (\t x -> show t ++ " " ++
 >           --                    show (mcMAvg x / fromIntegral nitt)) xs newGrids
 >
->           renderableToPNGFile (errChart xs mcMAvg trial trialInitState testData nitt)
->                               500 500 "Magnetism.png"
->           defaultMain $ example
+>           -- renderableToPNGFile (errChart xs mcMAvg trial trialInitState testData nitt)
+>           --                     500 500 "diagrams/Magnetism.png"
+>           mainRender (DiagramOpts (Just 500) (Just 500) "FooBar.png"
+>                      , DiagramLoopOpts False Nothing 0)
+>                      (circle 1.0 :: Diagram B R2)
+>           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/example1.png"
+>                      , DiagramLoopOpts False Nothing 0)
+>                      (example1 :: Diagram B R2)
+>           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/example.png"
+>                      , DiagramLoopOpts False Nothing 0)
+>                      (example :: Diagram B R2)
+>           putStrLn "Hello"
+>           -- defaultMain $ example
 >             -- (chessBoard (mcGrid $ newGrids!!0) # D.translate (0 & 0)) <>
 >             -- (chessBoard (mcGrid $ newGrids!!1) # D.translate (12 & 0))
 
@@ -817,6 +850,10 @@ Calculate energy:
 ```{.dia width='500'}
 import Ising
 dia = example
+```
+
+```{.dia width='500'}
+dia = image "Magnetism.png" 1.0 1.0
 ```
 
 Bibliography and Resources

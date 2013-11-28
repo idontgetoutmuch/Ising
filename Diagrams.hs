@@ -4,11 +4,14 @@
 
 module Diagrams (
     example
+  , example1
   , errChart
   ) where
 
-import Diagrams.Prelude
-import Diagrams.Coordinates ( (&) )
+import Diagrams.Prelude hiding ( render )
+import qualified Diagrams.Prelude as P
+import Diagrams.Coordinates ( (^&) )
+import Diagrams.TwoD.Arrow
 
 import Data.List (minimumBy, tails, (\\))
 import Data.Ord (comparing)
@@ -16,7 +19,10 @@ import Data.Ord (comparing)
 import Control.Lens hiding ( (#), (&), moveTo )
 import Graphics.Rendering.Chart hiding ( moveTo )
 import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
+import Graphics.Rendering.Chart.Backend.Diagrams
 import Data.Default.Class
+
+import System.IO.Unsafe
 
 
 type Square = (Int, Int)
@@ -47,11 +53,28 @@ chessBoard' n
   $ cycle [saddlebrown, antiquewhite]
 
 squareToPoint :: Square -> P2
-squareToPoint (x,y) = (&) (fromIntegral x) (negate (fromIntegral y))
+squareToPoint (x,y) = (^&) (fromIntegral x) (negate (fromIntegral y))
 
-knight sq
-  = circle 1.0
-  # moveTo (squareToPoint sq)
+sq = square 2 # showOrigin # lc darkgray # lw 0.07
+ds = (sq # named "left") ||| strutX 3 ||| (sq # named "right")
+
+shaft  = cubicSpline False ( map p2 [(0, 0), (1, 0), (1, 0.2), (2, 0.2)])
+
+example1 = ds # connect' (with & arrowHead .~ dart & headSize .~ 0.6
+                               & tailSize .~ 0.5 & arrowTail .~ quill
+                               & shaftStyle %~ lw 0.02 & arrowShaft .~ shaft)
+                               "left" "right" # pad 1.1
+
+sPt = p2 (0.20, 0.20)
+ePt = p2 (2.85, 0.85)
+
+-- We use small blue and red circles to mark the start and end points.
+dot  = circle 0.02 # lw 0
+sDot = dot # fc blue # moveTo sPt
+eDot = dot # fc red  # moveTo ePt
+
+example2 = ( sDot <> eDot <> arrowBetween sPt ePt)
+           # centerXY # pad 1.1
 
 drawTour tour = tourPoints <> stroke tourPath
   where
@@ -61,9 +84,7 @@ drawTour tour = tourPoints <> stroke tourPath
 
 example =
   mconcat
-  [ knight tourStart
-  , knight tourEnd
-  , drawTour tour
+  [ drawTour tour
   , chessBoard' 8
   ]
   where
@@ -81,10 +102,10 @@ errChart xs mcMAvg trial trialInitState testData nitt = toRenderable layout
               $ plot_lines_title .~ "error"
               $ def
 
-    layout = layout1_title .~ "Floating Point Error"
-           $ layout1_plots .~ [Left (toPlot sinusoid1)]
-           $ layout1_left_axis .~ errorAxis
-           $ layout1_bottom_axis .~ stepSizeAxis
+    layout = layout_title .~ "Floating Point Error"
+           $ layout_plots .~ [toPlot sinusoid1]
+           $ layout_y_axis .~ errorAxis
+           $ layout_x_axis .~ stepSizeAxis
            $ def
 
     errorAxis = laxis_title .~ "Minus log to base 2 of the error"
