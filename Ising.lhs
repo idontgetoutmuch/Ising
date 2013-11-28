@@ -49,8 +49,18 @@ all the cells in parallel as would happen if we used repa. The reader
 only interested in this abstraction can go straight to the
 implementation.
 
+The diagram below shows a 2 dimensional grid of cells. Each cell can
+either be in an (spin) up state or (spin) down state as indicated by
+the arrows and corresponding colours. The Ising model then applies a
+parameterized set of rules by which the grid is updated. For certain
+parameters the cells remain in a random configuration, that is the net
+spin (taking up = 1 and down = -1) remains near zero; for other
+parameters, the spins in the cells line up (not entirely as there is
+always some randomness). It is this lining up that gives rise to
+ferromagnetism.
+
 ```{.dia width='500'}
-dia = image "diagrams/exampleGrid.png" 1.0 1.0
+dia = image "diagrams/vectorGrid.png" 1.0 1.0
 ```
 
 On the other hand, the physics and the Monte Carlo method used to
@@ -116,17 +126,19 @@ Acknowledgements
 
 -- James Cook's package and comments
 
+-- #diagrams
+
 Haskell Preamble
 ================
 
 Pragmas and imports to which only the over-enthusiastic reader need pay attention.
 
-{-# OPTIONS_GHC -Wall                      #-}
-{-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults    #-}
-{-# OPTIONS_GHC -fno-warn-unused-do-bind   #-}
-{-# OPTIONS_GHC -fno-warn-missing-methods  #-}
-{-# OPTIONS_GHC -fno-warn-orphans          #-}
+> {-# OPTIONS_GHC -Wall                      #-}
+> {-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
+> {-# OPTIONS_GHC -fno-warn-type-defaults    #-}
+> {-# OPTIONS_GHC -fno-warn-unused-do-bind   #-}
+> {-# OPTIONS_GHC -fno-warn-missing-methods  #-}
+> {-# OPTIONS_GHC -fno-warn-orphans          #-}
 
 > {-# LANGUAGE TypeFamilies                  #-}
 > {-# LANGUAGE NoMonomorphismRestriction     #-}
@@ -155,9 +167,10 @@ FIXME: End of interlude
 >        , testData'
 >        ) where
 >
-> -- import Diagrams ( example
-> --                 , errChart
-> --                 )
+> import Diagrams ( example
+>                 , errChart
+>                 , chessBoard'
+>                 )
 
 > import qualified Data.Vector.Unboxed as V
 > import qualified Data.Vector.Unboxed.Mutable as M
@@ -172,7 +185,7 @@ FIXME: End of interlude
 > import Diagrams.Backend.Cairo
 > import Diagrams.Backend.CmdLine
 > import Diagrams.Backend.Cairo.CmdLine
-> import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
+> import Graphics.Rendering.Chart.Backend.Cairo hiding ( runBackend, defaultEnv )
 
 Other
 =====
@@ -803,15 +816,15 @@ Calculate energy:
 >
 > main :: IO ()
 > main = do print "Magnetization"
->           -- mapM_ putStrLn $
->           --   zipWith (\t x -> show t ++ " " ++
->           --                    show (mcMAvg x / fromIntegral nitt)) xs newGrids
 >
->           -- renderableToPNGFile (errChart xs mcMAvg trial trialInitState testData nitt)
->           --                     500 500 "diagrams/Magnetism.png"
->           -- mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/exampleGrid.png"
->           --            , DiagramLoopOpts False Nothing 0)
->           --            (example :: Diagram B R2)
+>           renderableToPNGFile (errChart xs mcMAvg trial trialInitState testData nitt)
+>                               500 500 "diagrams/Magnetism.png"
+>           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/exampleGrid.png"
+>                      , DiagramLoopOpts False Nothing 0)
+>                      (example :: Diagram B R2)
+>           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/vectorGrid.png"
+>                      , DiagramLoopOpts False Nothing 0)
+>                      ((chessBoard' 10 trialGrid) :: Diagram B R2)
 
 > boardSq :: (Transformable b, HasStyle b, TrailLike b, V b ~ R2) =>
 >            Colour Double -> b

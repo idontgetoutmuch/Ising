@@ -1,10 +1,12 @@
 {-# LANGUAGE TypeFamilies                  #-}
 
-{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE NoMonomorphismRestriction     #-}
+{-# LANGUAGE FlexibleContexts              #-}
 
 module Diagrams (
     example
   , errChart
+  , chessBoard'
   ) where
 
 import Diagrams.Prelude hiding ( render )
@@ -20,6 +22,9 @@ import Graphics.Rendering.Chart hiding ( moveTo )
 import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
 -- import Graphics.Rendering.Chart.Backend.Diagrams
 import Data.Default.Class
+import qualified Data.Vector.Unboxed as V
+import Data.List.Split ( chunksOf )
+
 
 
 type Square = (Int, Int)
@@ -27,22 +32,39 @@ type Square = (Int, Int)
 board :: [Square]
 board = [ (x,y) | x <- [0..7], y <- [0..7] ]
 
-boardSq' c = arr <> square 1 # lw 0 # fc c
+boardSq c = arr <> square 1 # lw 0 # fc c
   where
     arr = arrowBetween' (with & arrowHead .~ spike & arrowTail .~ quill) sPt nPt
           # centerXY
     sPt = p2 (0.50, 0.10)
     nPt = p2 (0.50, 0.70)
 
-chessBoard' n
-  = vcat . map hcat . map (map boardSq')
+chessBoard' :: P.Renderable (P.Path R2) b => Int -> V.Vector Int -> Diagram b R2
+chessBoard' n vs = if aLen == sLen
+                   then result
+                   else error $ "Specified grid size " ++ show sLen ++
+                                " Actual grid size "   ++ show aLen
+  where
+    aLen = V.length vs
+    sLen = n * n
+    getColour x | x == -1 = saddlebrown
+    getColour x | x ==  1 = antiquewhite
+    getColour x           = error $ "Spins can be up or down: " ++ show x
+    result = vcat $
+             map hcat $
+             map (map (boardSq . getColour)) $
+             chunksOf n $
+             V.toList vs
+
+chessBoard n
+  = vcat . map hcat . map (map boardSq)
   . take n . map (take n) . tails
   $ cycle [saddlebrown, antiquewhite]
 
 squareToPoint :: Square -> P2
-squareToPoint (x,y) = (^&) (fromIntegral x) (negate (fromIntegral y))
+squareToPoint (x,y) = fromIntegral x ^& negate (fromIntegral y)
 
-example = chessBoard' 8
+example = chessBoard 8
 
 -- FIXME: The arguments were done for expediency
 
