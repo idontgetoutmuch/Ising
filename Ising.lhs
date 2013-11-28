@@ -49,6 +49,10 @@ all the cells in parallel as would happen if we used repa. The reader
 only interested in this abstraction can go straight to the
 implementation.
 
+```{.dia width='500'}
+dia = image "diagrams/exampleGrid.png" 1.0 1.0
+```
+
 On the other hand, the physics and the Monte Carlo method used to
 simulate the model are of considerable interest in their own
 right. Readers interested in the Monte Carlo method can skip the
@@ -117,12 +121,12 @@ Haskell Preamble
 
 Pragmas and imports to which only the over-enthusiastic reader need pay attention.
 
-> {-# OPTIONS_GHC -Wall                      #-}
-> {-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
-> {-# OPTIONS_GHC -fno-warn-type-defaults    #-}
-> {-# OPTIONS_GHC -fno-warn-unused-do-bind   #-}
-> {-# OPTIONS_GHC -fno-warn-missing-methods  #-}
-> {-# OPTIONS_GHC -fno-warn-orphans          #-}
+{-# OPTIONS_GHC -Wall                      #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults    #-}
+{-# OPTIONS_GHC -fno-warn-unused-do-bind   #-}
+{-# OPTIONS_GHC -fno-warn-missing-methods  #-}
+{-# OPTIONS_GHC -fno-warn-orphans          #-}
 
 > {-# LANGUAGE TypeFamilies                  #-}
 > {-# LANGUAGE NoMonomorphismRestriction     #-}
@@ -130,8 +134,8 @@ Pragmas and imports to which only the over-enthusiastic reader need pay attentio
 FIXME: End of interlude
 
 > module Ising (
->          example
->        , energy
+>        --   example
+>        {- , -} energy
 >        , McState(..)
 >        , measure
 >        , nitt
@@ -151,9 +155,9 @@ FIXME: End of interlude
 >        , testData'
 >        ) where
 >
-> import Diagrams ( example
->                 , errChart
->                 )
+> -- import Diagrams ( example
+> --                 , errChart
+> --                 )
 
 > import qualified Data.Vector.Unboxed as V
 > import qualified Data.Vector.Unboxed.Mutable as M
@@ -805,12 +809,9 @@ Calculate energy:
 >
 >           -- renderableToPNGFile (errChart xs mcMAvg trial trialInitState testData nitt)
 >           --                     500 500 "diagrams/Magnetism.png"
->           mainRender (DiagramOpts (Just 500) (Just 500) "FooBar.png"
->                      , DiagramLoopOpts False Nothing 0)
->                      (circle 1.0 :: Diagram B R2)
->           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/example.png"
->                      , DiagramLoopOpts False Nothing 0)
->                      (example :: Diagram B R2)
+>           -- mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/exampleGrid.png"
+>           --            , DiagramLoopOpts False Nothing 0)
+>           --            (example :: Diagram B R2)
 
 > boardSq :: (Transformable b, HasStyle b, TrailLike b, V b ~ R2) =>
 >            Colour Double -> b
@@ -840,12 +841,7 @@ Calculate energy:
 >
 
 ```{.dia width='500'}
-import Ising
-dia = example
-```
-
-```{.dia width='500'}
-dia = image "Magnetism.png" 1.0 1.0
+dia = image "diagrams/Magnetism.png" 1.0 1.0
 ```
 
 Bibliography and Resources

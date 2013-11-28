@@ -18,7 +18,7 @@ import Data.Ord (comparing)
 import Control.Lens hiding ( (#), (&), moveTo )
 import Graphics.Rendering.Chart hiding ( moveTo )
 import Graphics.Rendering.Chart.Backend.Cairo hiding (runBackend, defaultEnv)
-import Graphics.Rendering.Chart.Backend.Diagrams
+-- import Graphics.Rendering.Chart.Backend.Diagrams
 import Data.Default.Class
 
 
