@@ -202,7 +202,75 @@ Tong's lecture notes (@Tong:Statphys:Online).
 Suppose we have we 3 boxes (we use the more modern nomenclature rather
 than the somewhat antiquated word urn) and 7 balls and we randomly
 assign the balls to boxes. Then it is far more likely that we will get
-an assignment of 2,2,3 rather than 0,0,7.
+an assignment of 2,2,3 rather than 0,0,7. When the numbers of boxes
+and balls become large (which is the case in statistical physics where
+we consider e.g. $10^23$ numbers of atoms) then it becomes very, very,
+very likely that the balls (or atoms) will spread themselves out
+uniformly as in the example.
+
+Now suppose we have $N$ balls and $M$ boxes and we associate an energy
+$k$ with the $k$-th box but restrict the total energy to be
+constant. Thus we have two constraints:
+
+* The total number of balls $N = \sum_1^M n_k$ and
+
+* The total energy $E = \sum_1^M k\, n_k$.
+
+Let us assume the balls are allocated to boxes in the most likely way
+and let us denote the values in each box for this distribution as
+$\tilde{n}_k$.
+
+Let us now move 2 balls from box $k$, one to box $k-1$ and one to box
+$k+1$. Note that both constraints are satisified by this move. We must
+therefore have
+
+$$
+\begin{aligned}
+\frac{1}{(\tilde{n}_{k-1} + 1)!}\frac{1}{(\tilde{n}_{k} - 2)!}\frac{1}{(\tilde{n}_{k+1} + 1)!} &\le \frac{1}{\tilde{n}_{k-1}!}\frac{1}{\tilde{n}_{k}!}\frac{1}{\tilde{n}_{k+1}!} \\
+\frac{\tilde{n}_k}{\tilde{n}_{k-1} + 1}\frac{\tilde{n}_k - 1}{\tilde{n}_{k+1} + 1} &\le 1
+\end{aligned}
+$$
+
+And let us start from the most likely distribution and move 1 ball
+from box $k-1$ and 1 ball from box $k+1$ into box $k$. Again both
+constraints are satisified by this move. Doing a similar calculation
+to the one above we get
+
+$$
+\begin{aligned}
+\frac{1}{(\tilde{n}_{k-1} - 1)!}\frac{1}{(\tilde{n}_{k} + 2)!}\frac{1}{(\tilde{n}_{k+1} - 1)!} &\le \frac{1}{\tilde{n}_{k-1}!}\frac{1}{\tilde{n}_{k}!}\frac{1}{\tilde{n}_{k+1}!} \\
+1 &\le \frac{\tilde{n}_k + 1}{\tilde{n}_{k+1}}\frac{\tilde{n}_{k} + 2}{\tilde{n}_{k-1}}
+\end{aligned}
+$$
+
+From this we deduce that as $n_k \rightarrow \infty$ then $n_k^2
+\approx n_{k-1}n_{k+1}$ or that $n_{k+1} / n_k = B$ for some constant
+$B$.
+
+Telecsoping we can write $n_k = n_1 B^{k-1} \propto B^k$. Thus the probability of a ball being box $k$ is
+
+$$
+\mathbb{P}(k) = \frac{B^k}{\sum_{i=1}^M B^i}
+$$
+
+If we now set $B = e^{-\beta}$ and $Z = \sum_{i=1}^M B^i$ then we can
+re-write our distribution as
+
+$$
+\mathbb{P}(k) = \frac{e^{-\beta k}}{Z}
+$$
+
+It should therefore be plausible that the probability of finding a
+system with a given energy $E(\sigma)$ in a given state $\sigma$ is given by
+the Boltzmann distribution
+
+$$
+\mathbb{P}(\sigma) = \frac{\exp(-E(\sigma) / k_B T)}{Z(T)}
+$$
+
+where we have defined the temperature to be $T = 1 / k_B\beta$ with
+$k_B$ being Boltzmann's constant and $Z(T)$ is another normalizing
+constant.
 
 Monte Carlo Estimation
 ======================
@@ -211,19 +279,17 @@ Although Ising himself developed an analytic solution in 1 dimension
 and Onsager later developed an analytic solution in 2 dimensions,
 no-one has (yet) found an analytic solution for 3 dimensions.
 
-
 One way to determine an approximate answer is to use a Monte Carlo
 method.
 
 Uniform Sampling
 ----------------
 
-
- We could pick sample configurations at random according to the
+We could pick sample configurations at random according to the
 Boltzmann distribution
 
 $$
-\pi(\sigma) = \frac{\exp(-E(\sigma) / k_B T)}{Z(T)}
+\mathbb{P}(\sigma) = \frac{\exp(-E(\sigma) / k_B T)}{Z(T)}
 $$
 
 where the sum $T$ is the temperature, $k_B$ is Boltzmann's constant,
