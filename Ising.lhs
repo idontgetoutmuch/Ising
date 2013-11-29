@@ -40,14 +40,15 @@ transition and can also be used to describe phase transitions in
 alloys.
 
 Abstracting the Ising model from its physical origins, one can think
-of it rather like Conway's Game of Life: there is a grid and each cell
-on the grid is updated depending on the state of its neighbours. The
-difference with the Game of Life is that the updates are not
-deterministic but are random with the randomness selecting which cell
-gets updated as well as whether it gets updated. Thus we cannot update
-all the cells in parallel as would happen if we used repa. The reader
-only interested in this abstraction can go straight to the
-implementation.
+of it rather like [Conway's Game of
+Life](http://idontgetoutmuch.wordpress.com/2013/02/23/comonads-life-and-klein-bottles):
+there is a grid and each cell on the grid is updated depending on the
+state of its neighbours. The difference with the Game of Life is that
+the updates are not deterministic but are random with the randomness
+selecting which cell gets updated as well as whether it gets
+updated. Thus we cannot update all the cells in parallel as would
+happen if we used repa. The reader only interested in this abstraction
+can go straight to the implementation.
 
 The diagram below shows a 2 dimensional grid of cells. Each cell can
 either be in an (spin) up state or (spin) down state as indicated by
@@ -60,19 +61,14 @@ always some randomness). It is this lining up that gives rise to
 ferromagnetism.
 
 ```{.dia width='500'}
-dia = image "diagrams/vectorGrid.png" 1.0 1.0
+dia = image "diagrams/exampleGrid.png" 1.0 1.0
 ```
 
 On the other hand, the physics and the Monte Carlo method used to
 simulate the model are of considerable interest in their own
 right. Readers interested in the Monte Carlo method can skip the
 physics and go to Monte Carlo Estimation. Readers interested in the
-physics can start with the sction on Magnetism.
-
-One area with no exposition is that of statistical physics; the
-Boltzmann distribution is taken for granted. For an excellent
-introduction to the subject see David Tong's lecture notes
-(@Tong:Statphys:Online).
+physics can start with the section on Magnetism.
 
 Definitions are in **bold**.
 
@@ -83,7 +79,7 @@ Following Ziman [@Ziman:Principles] and Reif [@reif2009fundamentals],
 we assume that each atom in the ferromagnetic material behaves like a
 small magnet. According to [Hund's
 rules](http://hyperphysics.phy-astr.gsu.edu/hbase/atomic/hund.html),
-we would expect upaired electrons in the $d$ and $f$ shells for
+we would expect unpaired electrons in the $d$ and $f$ shells for
 example in the transition elements and rare earths and these would
 supply the magnetic moment. However, the magnetic interaction between
 atoms is far too small to account for ferromagnetism. For Iron, for
@@ -99,7 +95,7 @@ neighbouring atoms depends on whether spins are parallel or
 anti-parallel. We can thus write the Hamiltonian in the form:
 
 $$
-E = -J\sum_{\langle i, j\rangle} \sigma_i \sigma_j - B\sum_k \sigma_k
+E = -J\sum_{\langle i, j\rangle} \sigma_i \sigma_j - H\sum_k \sigma_k
 $$
 
 Where
@@ -117,16 +113,28 @@ interaction between neighboring spins and depending on the balance
 between the Pauli exclusion principle and the electrostatic
 interaction energy of the electrons, this may be positive
 corresponding to parallel spins (ferromagnetism which is the case we
-consider in this article) or negative corresponding to antiparallel
+consider in this article) or negative corresponding to anti parallel
 spins (antiferromagnetism or ferrimagnetism which we consider no
 further).
 
-Acknowledgements
+Acknowledgments
 ================
 
--- James Cook's package and comments
+This post uses the
+[random-fu](http://hackage.haskell.org/package/random-fu) package for
+random number generation and has also benefitted from comments by the
+author of that package (James Cook).
 
--- #diagrams
+All diagrams were drawn using the Haskell
+[diagrams](http://projects.haskell.org/diagrams) domain specific
+language; the inhabitants of #diagrams were extremely helpful in
+helping create these.
+
+Internet sources too numerous to mention were used for the physics and
+Monte Carlo. Some are listed in the bibliography. Apologies if you
+recognize something which does not get its just recognition. The
+advantage of blog posts is that this can easily be remedied by leaving
+a comment.
 
 Haskell Preamble
 ================
@@ -162,8 +170,6 @@ FIXME: End of interlude
 >        , xs
 >        , newGrids
 >        , main
->        , boardSq
->        , chessBoard
 >        , testData'
 >        ) where
 >
@@ -179,22 +185,24 @@ FIXME: End of interlude
 > import Data.Random
 > import Control.Monad.State
 
-> import Data.List.Split ( chunksOf )
-
 > import Diagrams.Prelude hiding ( sample, render )
-> import Diagrams.Backend.Cairo
 > import Diagrams.Backend.CmdLine
 > import Diagrams.Backend.Cairo.CmdLine
 > import Graphics.Rendering.Chart.Backend.Cairo hiding ( runBackend, defaultEnv )
 
-Other
-=====
+The Boltzmann Distribution
+==========================
 
-An explanation of the Boltzmann distribution (which we need to replay):
+Statistical physics is an extremely large subject but there needs to
+be some justification for the use of the Boltzmann distribution. For
+an excellent introduction to the subject of Statistical Physics (in
+which the Boltzmann distribution plays a pivotal role) see David
+Tong's lecture notes (@Tong:Statphys:Online).
 
-http://www.math.fsu.edu/~quine/MB_11/10%20HP%20model%20and%20Boltzmann%20distribution.pdf
-
-An explanation of the Ising model using the Boltzmann distribution: http://www.uio.no/studier/emner/matnat/fys/FYS3150/h07/undervisningsmateriale/Lecture%20Notes/lecture2007.pdf
+Suppose we have we 3 boxes (we use the more modern nomenclature rather
+than the somewhat antiquated word urn) and 7 balls and we randomly
+assign the balls to boxes. Then it is far more likely that we will get
+an assignment of 2,2,3 rather than 0,0,7.
 
 Monte Carlo Estimation
 ======================
@@ -337,7 +345,7 @@ Z &= \sum_\sigma \exp\big(-\beta E(\sigma)\big) \\
 \end{aligned}
 $$
 
-By defintion
+By definition
 
 $$
 \begin{aligned}
@@ -424,7 +432,7 @@ Z &= 2\sum_\sigma \exp{-\beta \bigg(E_0 + 8J\sum_i (\sigma_i + 1) /2\bigg)} \\
 \end{aligned}
 $$
 
-Again we can calculate the free energy and ince we are doing this
+Again we can calculate the free energy and since we are doing this
 calculation to get a rough estimate of the entropy we can approximate
 further.
 
@@ -527,7 +535,7 @@ $$
 $$
 
 Another key question is, if there is a unique stationary distribution,
-will the $n$-th transion probabilities converge to that distribution
+will the $n$-th transition probabilities converge to that distribution
 (FIXME: really badly expressed but will do as a reminder).
 
 In the case of chains with a countably infinite state space, a
@@ -600,7 +608,7 @@ Note that the $\inf$ is taken over $n$ *strictly* greater than
 1. Incidentally the first passage time is a stopping time but that any
 discussion of that would take this already long article even longer.
 
-The expecation of the $i$-th first passage time starting from $i$ is
+The expectation of the $i$-th first passage time starting from $i$ is
 denoted ${\mathbb E}_i(T_i)$.
 
 Define $m_i = {\mathbb E}_i(T_i)$
@@ -638,7 +646,7 @@ $\blacksquare$
 A proof of this theorem uses *coupling* developed by Doeblin; see
 [@Gravner:mat135a:Online] for more details.
 
-**Corollary** With the conditions of the preceeding Theorem
+**Corollary** With the conditions of the preceding Theorem
 
 * $p_{ij}^{(n)} \rightarrow \pi_j$ as $n \rightarrow \infty$ for all $i, j$
 
@@ -826,21 +834,6 @@ Calculate energy:
 >                      , DiagramLoopOpts False Nothing 0)
 >                      ((chessBoard' 10 trialGrid) :: Diagram B R2)
 
-> boardSq :: (Transformable b, HasStyle b, TrailLike b, V b ~ R2) =>
->            Colour Double -> b
-> boardSq c = square 1 # lw 0 # fc c
->
-> chessBoard :: (Monoid c, Semigroup c, Transformable c, HasStyle c,
->                Juxtaposable c, HasOrigin c, TrailLike c, V c ~ R2) =>
->               V.Vector Int -> c
-> chessBoard v
->   = vcat $ map hcat $ map (map boardSq)
->   $ chunksOf gridSize $ map f $ V.toList v
->   where
->     f (-1) = red
->     f   1  = blue
->     f _    = error "Unexpected spin"
->
 > testData' :: Int -> V.Vector (Int, Int, Double)
 > testData' m =
 >   V.fromList $

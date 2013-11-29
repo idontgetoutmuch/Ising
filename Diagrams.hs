@@ -32,12 +32,21 @@ type Square = (Int, Int)
 board :: [Square]
 board = [ (x,y) | x <- [0..7], y <- [0..7] ]
 
-boardSq c = arr <> square 1 # lw 0 # fc c
+boardSq c = arr <> square 1 # lw 0 # fc (getColour c)
   where
-    arr = arrowBetween' (with & arrowHead .~ spike & arrowTail .~ quill) sPt nPt
+    arr = arrowBetween' (with & arrowHead .~ spike & arrowTail .~ quill) (sPt c) (nPt c)
           # centerXY
-    sPt = p2 (0.50, 0.10)
-    nPt = p2 (0.50, 0.70)
+    sPt x | x == -1 = p2 (0.50, 0.70)
+    sPt x | x ==  1 = p2 (0.50, 0.10)
+    sPt x           =  error $ "Spins can be up or down: " ++ show x
+
+    nPt x | x == -1 = p2 (0.50, 0.10)
+    nPt x | x ==  1 = p2 (0.50, 0.70)
+    nPt x           =  error $ "Spins can be up or down: " ++ show x
+
+    getColour x | x == -1 = saddlebrown
+    getColour x | x ==  1 = antiquewhite
+    getColour x           = error $ "Spins can be up or down: " ++ show x
 
 chessBoard' :: P.Renderable (P.Path R2) b => Int -> V.Vector Int -> Diagram b R2
 chessBoard' n vs = if aLen == sLen
@@ -47,19 +56,16 @@ chessBoard' n vs = if aLen == sLen
   where
     aLen = V.length vs
     sLen = n * n
-    getColour x | x == -1 = saddlebrown
-    getColour x | x ==  1 = antiquewhite
-    getColour x           = error $ "Spins can be up or down: " ++ show x
     result = vcat $
              map hcat $
-             map (map (boardSq . getColour)) $
+             map (map boardSq) $
              chunksOf n $
              V.toList vs
 
 chessBoard n
   = vcat . map hcat . map (map boardSq)
   . take n . map (take n) . tails
-  $ cycle [saddlebrown, antiquewhite]
+  $ cycle [1, -1]
 
 squareToPoint :: Square -> P2
 squareToPoint (x,y) = fromIntegral x ^& negate (fromIntegral y)
