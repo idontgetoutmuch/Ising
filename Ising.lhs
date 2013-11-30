@@ -61,7 +61,9 @@ always some randomness). It is this lining up that gives rise to
 ferromagnetism.
 
 ```{.dia width='500'}
-dia = image "diagrams/exampleGrid.png" 1.0 1.0
+import Diagrams
+import Ising
+dia = chessBoard' 10 trialGrid
 ```
 
 On the other hand, the physics and the Monte Carlo method used to
@@ -70,7 +72,7 @@ right. Readers interested in the Monte Carlo method can skip the
 physics and go to Monte Carlo Estimation. Readers interested in the
 physics can start with the section on Magnetism.
 
-Definitions are in **bold**.
+Definitions, theorems etc. are in **bold** and terminated by $\blacksquare$.
 
 Magnetism
 =========
@@ -132,7 +134,7 @@ helping create these.
 
 Internet sources too numerous to mention were used for the physics and
 Monte Carlo. Some are listed in the bibliography. Apologies if you
-recognize something which does not get its just recognition. The
+recognize something which does not get its just acknowledgement. The
 advantage of blog posts is that this can easily be remedied by leaving
 a comment.
 
@@ -166,6 +168,7 @@ FIXME: End of interlude
 >        , testData
 >        , trialInitState
 >        , trial
+>        , trialGrid
 >        , getTemps
 >        , xs
 >        , newGrids
@@ -174,7 +177,7 @@ FIXME: End of interlude
 >        ) where
 >
 > import Diagrams ( example
->                 , errChart
+>                 -- , errChart
 >                 , chessBoard'
 >                 )
 
@@ -187,8 +190,8 @@ FIXME: End of interlude
 
 > import Diagrams.Prelude hiding ( sample, render )
 > import Diagrams.Backend.CmdLine
-> import Diagrams.Backend.Cairo.CmdLine
-> import Graphics.Rendering.Chart.Backend.Cairo hiding ( runBackend, defaultEnv )
+> import Diagrams.Backend.Cairo.CmdLine ( B )
+> -- import Graphics.Rendering.Chart.Backend.Cairo hiding ( runBackend, defaultEnv )
 
 The Boltzmann Distribution
 ==========================
@@ -306,19 +309,17 @@ $$
 Z(T) = \sum_\sigma \exp(-E(\sigma) / k_B T)
 $$
 
-The standard notation for $k_B T$ is $\beta$.
+We can evaluate the energy for one state easily enough as the Haskell
+below demonstrates.
 
-We can evaluate the energy for one state easily enough.
-
-As an aside, we represent each state by a *Vector* of *Int*. No doubt
+[As an aside, we represent each state by a *Vector* of *Int*. No doubt
 more efficient representations can be implemented. We also have to
-calculate offsets into the vector given a point's grid co-ordinates.
+calculate offsets into the vector given a point's grid co-ordinates.]
 
 > gridSize :: Int
 > gridSize = 10
 >
 > energy :: (Fractional a, Integral a1, M.Unbox a1) => V.Vector a1 -> a
-> -- energy :: V.Vector Int => Double
 > energy v = 0.5 * (fromIntegral $ V.sum energyAux)
 >   where
 >
@@ -567,18 +568,39 @@ Markov Chains
 Markov first studied the stochastic processes that came to be named after him in 1906.
 
 We follow [@DBLP:books/daglib/0095301], [@Beichl615768],
-[@Greenbert95] and [@Gravner:mat135a:Online].
+[@Diaconis:1995:WKM:225058.225095], [@Greenbert95] [@citeulike:7907579] and
+[@Gravner:mat135a:Online].
 
-As usual we work on a measure space $(\Omega, {\mathbb F}, \mu)$.
+As usual we work on a probability measure space $(\Omega, {\mathbb F},
+\mu)$ (that is $\mu(\Omega) = 1$). Although this may not be much in
+evidence, it is there lurking behind the scenes.
 
 Let $S$ be a finite set. In the case of an Ising model with $N$ cells,
-this set will contain $2^N$ elements. Let $P = \{ p_{ij} : i, j \in S
-\}$ be such that
+this set will contain $2^N$ elements (all possible configurations).
+
+A **Markov chain** is a discrete time stochastic process $X_0, X_1,
+\ldots$ such that
+
+$$
+\mu (X_{n+1} = j \,|\, X_0 = i_0, X_1 = i_1, \dots X_n = i) = \mu (X_{n+1} = j \,|\, X_n = i)
+$$
+
+$\blacksquare$
+
+That is, where a Markov chain goes next only depends on where it is
+not on its history.
+
+A **stochastic transition matrix** is a matrix $P = \{ p_{ij} : i, j \in S
+\}$ such that
 
 $$
 \sum_{j \in S} p_{ij} = 1 \, \forall i \in S
 $$
 
+$\blacksquare$
+
+We can describe a Markov chain by its transition matrix and initial
+distribution.
 
 Stationarity
 ------------
@@ -749,11 +771,32 @@ If further the chain is positive recurrent then for any bounded
 function $f : {\mathbb I} \rightarrow {\mathbb R}$ then
 
 $$
-
+{\mathbb P} \Bigg(\frac{1}{n} \sum_{k = 0}^{n - 1}f(X_i)\rightarrow \hat{f} \, {\text as} \, n \rightarrow \infty \Bigg) = 1
 $$
 
+$\blacksquare$
 
-\blacksquare
+The Metropolis Algorithm
+------------------------
+
+Thus if we can find a Markov chain with the required stationary
+distribution and we sample a function of this chain we will get an
+estimate for the average value of the function. What Metropolis and
+his colleagues did was to provide a method of producing such a chain.
+
+**Algorithm**
+
+Specify an ergodic Markov chain on $\Omega$ with transition
+probabilities $q_{ij}$ and create a new (ergodic) Markov chain with
+transition probabilities
+
+$$
+p_{ij} =
+\begin{cases}
+q_{ij}\bigg[\frac{\pi_j q_{ji}}{\pi_i q_{ij}} \land 1 \bigg] & \text{if } y \ne x \\
+1 - \sum_{k : k \ne i} q_{ik} \bigg[\frac{\pi_j q_{ji}}{\pi_i q_{ij}} \land 1 \bigg] & \text{if } y = x
+\end{cases}
+$$
 
 Other Other
 -----------
@@ -891,8 +934,8 @@ Calculate energy:
 > main :: IO ()
 > main = do print "Magnetization"
 >
->           renderableToPNGFile (errChart xs mcMAvg trial trialInitState testData nitt)
->                               500 500 "diagrams/Magnetism.png"
+>           -- renderableToPNGFile (errChart xs mcMAvg trial trialInitState testData nitt)
+>           --                     500 500 "diagrams/Magnetism.png"
 >           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/exampleGrid.png"
 >                      , DiagramLoopOpts False Nothing 0)
 >                      (example :: Diagram B R2)
