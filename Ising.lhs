@@ -572,7 +572,7 @@ We follow [@DBLP:books/daglib/0095301], [@Beichl615768],
 [@Gravner:mat135a:Online].
 
 As usual we work on a probability measure space $(\Omega, {\mathbb F},
-\mu)$ (that is $\mu(\Omega) = 1$). Although this may not be much in
+\mathbb{P})$ (that is $\mathbb{P}(\Omega) = 1$). Although this may not be much in
 evidence, it is there lurking behind the scenes.
 
 Let $S$ be a finite set. In the case of an Ising model with $N$ cells,
@@ -582,7 +582,7 @@ A **Markov chain** is a discrete time stochastic process $X_0, X_1,
 \ldots$ such that
 
 $$
-\mu (X_{n+1} = j \,|\, X_0 = i_0, X_1 = i_1, \dots X_n = i) = \mu (X_{n+1} = j \,|\, X_n = i)
+\mathbb{P} (X_{n+1} = j \,|\, X_0 = i_0, X_1 = i_1, \dots X_n = i) = \mathbb{P} (X_{n+1} = j \,|\, X_n = i)
 $$
 
 $\blacksquare$
@@ -599,8 +599,11 @@ $$
 
 $\blacksquare$
 
-We can describe a Markov chain by its transition matrix and initial
-distribution.
+We can describe a Markov chain by its transition matrix $P$ and initial
+distribution $\lambda_i = \mathbb{P} (X_0 = i)$.
+
+We need to be able to discuss properties of Markov chains such as
+stationarity, irreducibility, recurrence and ergodicity.
 
 Stationarity
 ------------
@@ -608,8 +611,10 @@ Stationarity
 A Markov chain has a **stationary distribution** $\pi_i$ if
 
 $$
-\sum_{i \in S} \pi_i p_{ji} = \pi_j
+\sum_{i \in S} \pi_i p_{ij} = \pi_j
 $$
+
+$\blacksquare$
 
 One question one might ask is whether a given Markov chain has such a
 distribution. For example, for the following chain, any distribution
@@ -622,11 +627,17 @@ $$
  \end{bmatrix}
 $$
 
-Another key question is, if there is a unique stationary distribution,
-will the $n$-th transition probabilities converge to that distribution
-(FIXME: really badly expressed but will do as a reminder).
+The $n$-th transition matrix of a Markov chain is $P^n$. The
+corresponding matrix entries are
 
-In the case of chains with a countably infinite state space, a
+$$
+p^{(n)}_{ij} = (P^n)_{ij}
+$$
+
+Another key question is, if there is a unique stationary distribution,
+will the $n$-th transition probabilities converge to that
+distribution, that is, when does, $p^{(n)}_{ij} \rightarrow \pi_j$ as
+$n \rightarrow \infty$.
 
 Irreducibility
 --------------
@@ -643,7 +654,7 @@ $$
 
 * $i \rightarrow j$
 * $p_{i_0i_1} p_{i_1i_2} \ldots p_{i_{n-1}i_n} \gt 0$
-* $p_{ij}^{(n)} \gt 0$
+* $p_{ij}^{(n)} \gt 0$ for some $n \ge 0$
 
 $\blacksquare$
 
@@ -697,9 +708,7 @@ Note that the $\inf$ is taken over $n$ *strictly* greater than
 discussion of that would take this already long article even longer.
 
 The expectation of the $i$-th first passage time starting from $i$ is
-denoted ${\mathbb E}_i(T_i)$.
-
-Define $m_i = {\mathbb E}_i(T_i)$
+denoted $m_i = {\mathbb E}_i(T_i)$.
 
 **Theorem** Let $P$ be irreducible then the following are equivalent:
 
@@ -711,7 +720,8 @@ Define $m_i = {\mathbb E}_i(T_i)$
 
 $\blacksquare$
 
-A state $i$ is **aperiodic** if $p_{nn} \gt 0$ for *all* sufficiently large $n$.
+A state $i$ is **aperiodic** if $p^{(n)}_{ii} \gt 0$ for *all*
+sufficiently large $n$.
 
 Example:
 
@@ -727,7 +737,7 @@ FIXME: Put Haskell example here with ghci for the first few terms
 **Theorem** Let $P$ be irreducible and aperiodic and suppose that $P$ has an
 invariant distribution $\pi$. Let $\pi_0$ be any distribution (on the state space???). Suppose that $(X_n)_{n \ge 0}$ is Markov $(\pi_0, P)$ then
 
-* $\mu(X_n = j) \rightarrow \pi_j$ as $n \rightarrow \infty$ for all $j$
+* $\mathbb{P}(X_n = j) \rightarrow \pi_j$ as $n \rightarrow \infty$ for all $j$
 
 $\blacksquare$
 
@@ -744,14 +754,23 @@ If the state space is infinite, the existence of a stationary
 distribution is not guaranteed even if the Markov chain is
 irreducible, see [@Srikant:ece534:Online] for more details.
 
+Detailed Balance
+----------------
+
+A stochastic matrix $P$ and a distribution $\pi$ are said to be in
+**detailed balance** if
+
+$$ \pi_i p_{ij} = \pi_j p_{ji} $$
+
+$\blacksquare$
+
+**Theorem** If a stochastic matrix $P$ and a distribution $\pi$ are in detailed
+balance then $\pi$ is a stationary distribution.
+
+$\blacksquare$
+
 The Ergodic Theorem
 -------------------
-
-An irreducible, aperiodic, positive recurrent Markov chain has a
-unique stationary distribution, which is also the limiting
-distribution
-
-Such Markov chains are called ergodic
 
 Define the number of visits to $i$ strictly before time $n$ as
 
@@ -774,7 +793,12 @@ $$
 {\mathbb P} \Bigg(\frac{1}{n} \sum_{k = 0}^{n - 1}f(X_i)\rightarrow \hat{f} \, {\text as} \, n \rightarrow \infty \Bigg) = 1
 $$
 
+If further still the chain is aperiodic then it has a unique
+stationary distribution, which is also the limiting distribution
+
 $\blacksquare$
+
+A Markov chain satisfying all three conditions is called ergodic.
 
 The Metropolis Algorithm
 ------------------------
@@ -784,11 +808,13 @@ distribution and we sample a function of this chain we will get an
 estimate for the average value of the function. What Metropolis and
 his colleagues did was to provide a method of producing such a chain.
 
-**Algorithm**
+**Algorithm** $\pi$ be a probability distribution on the state space
+$\Omega$ with $\pi_i \gt 0$ for all $i$ and let $(Q, \lambda) be an
+ergodic Markov chain on $\Omega$ with transition probabilities $q_{ij}
+\gt 0$ (the latter condition is slightly stronger than it need be but
+we will not need fully general conditions).
 
-Specify an ergodic Markov chain on $\Omega$ with transition
-probabilities $q_{ij}$ and create a new (ergodic) Markov chain with
-transition probabilities
+Create a new (ergodic) Markov chain with transition probabilities
 
 $$
 p_{ij} =
@@ -797,6 +823,21 @@ q_{ij}\bigg[\frac{\pi_j q_{ji}}{\pi_i q_{ij}} \land 1 \bigg] & \text{if } y \ne 
 1 - \sum_{k : k \ne i} q_{ik} \bigg[\frac{\pi_j q_{ji}}{\pi_i q_{ij}} \land 1 \bigg] & \text{if } y = x
 \end{cases}
 $$
+
+where $\land$ takes the maximum of its arguments.
+
+Calculate the value of interest on the state space e.g. the total
+magnetization for each step produced by this new chain.
+
+Repeat a sufficiently large number of times and take the average. This
+gives the estimate of the value of interest.
+
+$\blacksquare$
+
+Let us first note that this algorithm almost trivially satisfies the
+detailed balance condition.
+
+
 
 Other Other
 -----------
