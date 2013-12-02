@@ -876,6 +876,8 @@ Calculate energy:
 
 > data McState = McState { mcMagnetization :: !Double
 >                        , mcMAvg          :: !Double
+>                        , mcEnergy        :: !Double
+>                        , mcEAvg          :: !Double
 >                        , mcCount         :: !Int
 >                        , mcNumSamples    :: !Int
 >                        , mcGrid          :: !(V.Vector Int)
@@ -909,6 +911,11 @@ Calculate energy:
 >             if (mcCount u) `mod` measure == 0
 >             then mcMAvg u + newMag
 >             else mcMAvg u
+>           , mcEnergy = newEn
+>           , mcEAvg =
+>             if (mcCount u) `mod` measure == 0
+>             then mcEAvg u + newEn
+>             else mcEAvg u
 >           , mcCount = mcCount u + 1
 >           , mcNumSamples =
 >             if (mcCount u) `mod` measure == 0
@@ -924,8 +931,14 @@ Calculate energy:
 >     oldMag = mcMagnetization u
 >
 >     newMag = if p > r
->               then oldMag - 2 * (fromIntegral c)
+>               then oldMag - fromIntegral (2 * c)
 >               else oldMag
+>
+>     oldEn = mcEnergy u
+>
+>     newEn = if p > r
+>             then oldEn + fromIntegral (2 * c * d)
+>             else oldEn
 >
 >     v = mcGrid u
 >
@@ -945,6 +958,7 @@ Calculate energy:
 >     js = gridSize * ((i - 1) `mod` gridSize) + j
 >     je = gridSize * i + ((j + 1) `mod` gridSize)
 >     jw = gridSize * i + ((j - 1) `mod` gridSize)
+
 >
 > testData :: Int -> V.Vector (Int, Int, Double)
 > testData m =
@@ -963,10 +977,12 @@ Calculate energy:
 > trialInitState :: McState
 > trialInitState = McState { mcMagnetization = fromIntegral $
 >                                              magnetization trialGrid
->                          , mcMAvg = 0.0
->                          , mcCount = 0
->                          , mcNumSamples = 0
->                          , mcGrid = trialGrid
+>                          , mcMAvg          = 0.0
+>                          , mcEnergy        = energy trialGrid
+>                          , mcEAvg          = 0.0
+>                          , mcCount         = 0
+>                          , mcNumSamples    = 0
+>                          , mcGrid          = trialGrid
 >                         }
 >
 > trialGrid :: V.Vector Int
