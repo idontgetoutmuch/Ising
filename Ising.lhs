@@ -600,7 +600,7 @@ $$
 $\blacksquare$
 
 We can describe a Markov chain by its transition matrix $P$ and initial
-distribution $\lambda_i = \mathbb{P} (X_0 = i)$.
+distribution $\pi_0_i = \mathbb{P} (X_0 = i)$.
 
 We need to be able to discuss properties of Markov chains such as
 stationarity, irreducibility, recurrence and ergodicity.
@@ -608,10 +608,10 @@ stationarity, irreducibility, recurrence and ergodicity.
 Stationarity
 ------------
 
-A Markov chain has a **stationary distribution** $\pi_i$ if
+A Markov chain has a **stationary distribution** $\pi(i)$ if
 
 $$
-\sum_{i \in S} \pi_i p_{ij} = \pi_j
+\sum_{i \in S} \pi(i) p_{ij} = \pi(j)
 $$
 
 $\blacksquare$
@@ -636,7 +636,7 @@ $$
 
 Another key question is, if there is a unique stationary distribution,
 will the $n$-th transition probabilities converge to that
-distribution, that is, when does, $p^{(n)}_{ij} \rightarrow \pi_j$ as
+distribution, that is, when does, $p^{(n)}_{ij} \rightarrow \pi(j)$ as
 $n \rightarrow \infty$.
 
 Irreducibility
@@ -716,7 +716,7 @@ denoted $m_i = {\mathbb E}_i(T_i)$.
 
 * Some state is positive recurrent.
 
-* P has an invariant distribution $\pi$ and in this case $\pi_i = 1 / m_i$.
+* P has an invariant distribution $\pi$ and in this case $\pi(i) = 1 / m_i$.
 
 $\blacksquare$
 
@@ -737,7 +737,7 @@ FIXME: Put Haskell example here with ghci for the first few terms
 **Theorem** Let $P$ be irreducible and aperiodic and suppose that $P$ has an
 invariant distribution $\pi$. Let $\pi_0$ be any distribution (on the state space???). Suppose that $(X_n)_{n \ge 0}$ is Markov $(\pi_0, P)$ then
 
-* $\mathbb{P}(X_n = j) \rightarrow \pi_j$ as $n \rightarrow \infty$ for all $j$
+* $\mathbb{P}(X_n = j) \rightarrow \pi(j)$ as $n \rightarrow \infty$ for all $j$
 
 $\blacksquare$
 
@@ -746,7 +746,7 @@ A proof of this theorem uses *coupling* developed by Doeblin; see
 
 **Corollary** With the conditions of the preceding Theorem
 
-* $p_{ij}^{(n)} \rightarrow \pi_j$ as $n \rightarrow \infty$ for all $i, j$
+* $p_{ij}^{(n)} \rightarrow \pi(j)$ as $n \rightarrow \infty$ for all $i, j$
 
 $\blacksquare$
 
@@ -760,7 +760,7 @@ Detailed Balance
 A stochastic matrix $P$ and a distribution $\pi$ are said to be in
 **detailed balance** if
 
-$$ \pi_i p_{ij} = \pi_j p_{ji} $$
+$$ \pi(i) p_{ij} = \pi(j) p_{ji} $$
 
 $\blacksquare$
 
@@ -808,9 +808,9 @@ distribution and we sample a function of this chain we will get an
 estimate for the average value of the function. What Metropolis and
 his colleagues did was to provide a method of producing such a chain.
 
-**Algorithm** $\pi$ be a probability distribution on the state space
-$\Omega$ with $\pi_i \gt 0$ for all $i$ and let $(Q, \lambda) be an
-ergodic Markov chain on $\Omega$ with transition probabilities $q_{ij}
+**Algorithm** Let $\pi$ be a probability distribution on the state space
+$\Omega$ with $\pi(i) \gt 0$ for all $i$ and let $(Q, \pi_0)$ be an
+ergodic Markov chain on $\Omega$ with transition probabilities $q(i,j)
 \gt 0$ (the latter condition is slightly stronger than it need be but
 we will not need fully general conditions).
 
@@ -819,8 +819,8 @@ Create a new (ergodic) Markov chain with transition probabilities
 $$
 p_{ij} =
 \begin{cases}
-q_{ij}\bigg[\frac{\pi_j q_{ji}}{\pi_i q_{ij}} \land 1 \bigg] & \text{if } y \ne x \\
-1 - \sum_{k : k \ne i} q_{ik} \bigg[\frac{\pi_j q_{ji}}{\pi_i q_{ij}} \land 1 \bigg] & \text{if } y = x
+q(i,j)\bigg[\frac{\pi(j) q(j,i)}{\pi(i) q(i,j)} \land 1 \bigg] & \text{if } j \ne i \\
+1 - \sum_{k : k \ne i} q(i,k) \bigg[\frac{\pi(j) q(j,i)}{\pi(i) q(i,j)} \land 1 \bigg] & \text{if } j = i
 \end{cases}
 $$
 
@@ -834,10 +834,35 @@ gives the estimate of the value of interest.
 
 $\blacksquare$
 
-Let us first note that this algorithm almost trivially satisfies the
-detailed balance condition.
+Let us first note that the Markov chain produced by this algorithm
+almost trivially satisfies the detailed balance condition, for
+example,
 
+$$
+\begin{aligned}
+\pi(i) q(i,j)\bigg[\frac{\pi(j) q(j, i)}{\pi(i)q(i,j)} \land 1\bigg]
+&= \pi(i)q(i,j) \land \pi(j)q(j,i) \\
+&= \pi(j)q(j,i)\bigg[\frac{\pi(i) q(i, j)}{\pi(j)q(j,i)} \land 1\bigg]
+\end{aligned}
+$$
 
+Secondly since we have specified that $(Q, \pi_0)$ is ergodic then
+clearly $(P, \pi_0)$ is also ergodic (all the transition probabilities
+are $\gt 0$).
+
+So we know the algorithm will converge to the unique distribution we
+specified to provide estimates of values of interest.
+
+Two techniques that seem to be widespread in practical applications
+are *burn in* and *thinning*. Although neither have strong theoretical
+justification ("a thousand lemmings can't be wrong"), we follow these
+practices in our implementation.
+
+* "Burn in" means run the chain for a certain number of iterations
+before sampling to allow it to forget the initial distribution.
+
+* "Thinning" means sampling the chain every $n$ iterations rather than
+every iteration to prevent autocorrelation.
 
 Other Other
 -----------
