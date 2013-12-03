@@ -14,10 +14,17 @@ Haskell](http://www.reddit.com/r/haskell/comments/16uc2x/ising_model_in_haskell)
 discussion seems to have fizzled out but Ising models looked like a
 perfect fit for Haskell using
 [repa](http://hackage.haskell.org/package/repa). In the end it turns
-out that they are *not* a good fit for repa. As we can get some
-parallelism at a gross level but this is in a way that does not really
+out that they are *not* a good fit for repa, at least not using the
+original formulation. It may turn out that we can do better with
+[Swendson-Yang](http://en.wikipedia.org/wiki/Swendsen–Wang_algorithm)
+or [Wolff](http://en.wikipedia.org/wiki/Wolff_algorithm). But that
+belongs to another blog post.
+
+We can get some parallelism at a gross level using the Haskell
+[parallel](http://hackage.haskell.org/package/parallel) package via a
+one line change to the sequential code. However, this does not really
 show off Haskell's strengths in this area. In any event, it makes a
-good example for the
+good example for "embarassingly simple" parallelism in Haskell, the
 [vector](http://hackage.haskell.org/package/vector) package and random
 number generation using the
 [random-fu](http://hackage.haskell.org/package/random-fu) package.
@@ -63,7 +70,7 @@ ferromagnetism.
 ```{.dia width='500'}
 import Diagrams
 import Ising
-dia = chessBoard' 10 trialGrid
+dia = isingGrid 10 trialGrid
 ```
 
 On the other hand, the physics and the Monte Carlo method used to
@@ -159,7 +166,7 @@ FIXME: End of interlude
 >        --   example
 >        {- , -} energy
 >        , McState(..)
->        , measure
+>        , thinN
 >        , nitt
 >        , expDv
 >        , tCrit
@@ -176,9 +183,7 @@ FIXME: End of interlude
 >        , testData'
 >        ) where
 >
-> import Diagrams ( example
->                 -- , errChart
->                 , chessBoard'
+> import Diagrams ( errChart
 >                 )
 
 > import qualified Data.Vector.Unboxed as V
@@ -187,11 +192,12 @@ FIXME: End of interlude
 > import Data.Random.Source.PureMT
 > import Data.Random
 > import Control.Monad.State
+>
+> import Control.Parallel.Strategies
 
-> import Diagrams.Prelude hiding ( sample, render )
-> import Diagrams.Backend.CmdLine
-> import Diagrams.Backend.Cairo.CmdLine ( B )
-> -- import Graphics.Rendering.Chart.Backend.Cairo hiding ( runBackend, defaultEnv )
+FIXME: Can we get rid of this import?
+
+> import Graphics.Rendering.Chart.Backend.Cairo
 
 The Boltzmann Distribution
 ==========================
@@ -207,7 +213,7 @@ than the somewhat antiquated word urn) and 7 balls and we randomly
 assign the balls to boxes. Then it is far more likely that we will get
 an assignment of 2,2,3 rather than 0,0,7. When the numbers of boxes
 and balls become large (which is the case in statistical physics where
-we consider e.g. $10^23$ numbers of atoms) then it becomes very, very,
+we consider e.g. $10^{23}$ numbers of atoms) then it becomes very, very,
 very likely that the balls (or atoms) will spread themselves out
 uniformly as in the example.
 
@@ -250,7 +256,8 @@ From this we deduce that as $n_k \rightarrow \infty$ then $n_k^2
 \approx n_{k-1}n_{k+1}$ or that $n_{k+1} / n_k = B$ for some constant
 $B$.
 
-Telecsoping we can write $n_k = n_1 B^{k-1} \propto B^k$. Thus the probability of a ball being box $k$ is
+Telecsoping we can write $n_k = n_1 B^{k-1} \propto B^k$. Thus the
+probability of a ball being in box $k$ is
 
 $$
 \mathbb{P}(k) = \frac{B^k}{\sum_{i=1}^M B^i}
@@ -320,7 +327,7 @@ calculate offsets into the vector given a point's grid co-ordinates.]
 > gridSize = 10
 >
 > energy :: (Fractional a, Integral a1, M.Unbox a1) => V.Vector a1 -> a
-> energy v = 0.5 * (fromIntegral $ V.sum energyAux)
+> energy v = -0.5 * (fromIntegral $ V.sum energyAux)
 >   where
 >
 >     energyAux = V.generate l f
@@ -541,13 +548,21 @@ result](http://en.wikipedia.org/wiki/Ising_model#Onsager.27s_exact_solution)
 in 2d is
 
 $$
-\frac{1}{\beta} = k_BT_{\text Crit} = \frac{2J}{\ln(\sqrt{2}+1)} \approx 2.269J
+\frac{1}{\beta} = k_BT_{\text Crit} = \frac{2J}{\ln(\sqrt{2}+1)}
 $$
+
+Taking $J = 1$
+
+> tCrit :: Double
+> tCrit = 2.0 / log (1.0 + sqrt 2.0)
+
+    [ghci]
+    tCrit
 
 Plugging this in we get
 
     [ghci]
-    exp (-8.0/2.269) * (1.0 + 8.0 / 2.269)
+    exp (-8.0/tCrit) * (1.0 + 8.0 / tCrit)
 
 Thus the (Shannon) entropy is about 0.13N at the interesting
 temperature and is about N at high temperatures. So uniform sampling
@@ -864,40 +879,61 @@ before sampling to allow it to forget the initial distribution.
 * "Thinning" means sampling the chain every $n$ iterations rather than
 every iteration to prevent autocorrelation.
 
-Other Other
------------
+Haskell Implementation
+----------------------
 
-A warm start but we could try a cold start with all spins up.
+Calculating the total magnetization is trivial.
 
+> magnetization :: (Num a, M.Unbox a) => V.Vector a -> a
+> magnetization = V.sum
 
-Calculate magnetization:
-
-Calculate energy:
+We keep the state of the Monte Carlo simulation in a record.
 
 > data McState = McState { mcMagnetization :: !Double
 >                        , mcMAvg          :: !Double
 >                        , mcEnergy        :: !Double
 >                        , mcEAvg          :: !Double
+>                        , mcEAvg2         :: !Double
 >                        , mcCount         :: !Int
 >                        , mcNumSamples    :: !Int
 >                        , mcGrid          :: !(V.Vector Int)
 >                        }
 >   deriving Show
->
-> measure :: Int
-> measure = 100
->
+
+As discussed above we sample every *thinN* iterations, a technique known as "thinning".
+
+> thinN :: Int
+> thinN = 100
+
+The total number of iterations per Monte Carlo run.
+
 > nitt :: Int
 > nitt = 1000000
->
-> tCrit :: Double
-> tCrit = 2.0 / log (1.0 + sqrt 2.0) - 0.1
->
-> magnetization :: (Num a, M.Unbox a) => V.Vector a -> a
-> -- magnetization :: (M.Unbox a, Num a) => V.Vector a => a
-> magnetization = V.sum
->
->
+
+There are only a very limited number of energy changes that can occur
+for each spin flip. Rather the recalculate the energy changes for
+every spin flip we can store these in a *Vector*.
+
+For example if spin is up and *all* its surrounding spins are up and
+it flips to down then energy change is $8J$.
+
+```{.dia width='500'}
+import Diagrams
+dia = eFlipD [  0,  1,  0,  1,  1,  1,  0,  1, 0]
+             [  0,  1,  0,  1, -1,  1,  0,  1, 0]
+
+```
+
+Another example, the energy before is $-2J$ and the energy after is
+$2J$ so the energy change is $4J$.
+
+```{.dia width='500'}
+import Diagrams
+dia = eFlipD [  0,  1,  0, -1,  1,  1,  0,  1, 0]
+             [  0,  1,  0, -1, -1,  1,  0,  1, 0]
+
+```
+
 > expDv :: Double -> V.Vector Double
 > expDv t = V.generate 9 f
 >   where
@@ -905,20 +941,24 @@ Calculate energy:
 >     f n         = exp (((fromIntegral (8 - n)) - 4.0) * 2.0 / t)
 >
 > singleUpdate :: Int -> V.Vector Double -> McState -> (Int, Int, Double) -> McState
-> singleUpdate measure expDvT u (i, j, r) = -- D.trace (show $ mcMAvg u) $
+> singleUpdate thinN expDvT u (i, j, r) =
 >   McState { mcMagnetization = newMag
 >           , mcMAvg =
->             if (mcCount u) `mod` measure == 0
+>             if (mcCount u) `mod` thinN == 0
 >             then mcMAvg u + newMag
 >             else mcMAvg u
 >           , mcEnergy = newEn
 >           , mcEAvg =
->             if (mcCount u) `mod` measure == 0
+>             if (mcCount u) `mod` thinN == 0
 >             then mcEAvg u + newEn
 >             else mcEAvg u
+>           , mcEAvg2 =
+>             if (mcCount u) `mod` thinN == 0
+>             then mcEAvg2 u + newEn2
+>             else mcEAvg2 u
 >           , mcCount = mcCount u + 1
 >           , mcNumSamples =
->             if (mcCount u) `mod` measure == 0
+>             if (mcCount u) `mod` thinN == 0
 >             then mcNumSamples u + 1
 >             else mcNumSamples u
 >           , mcGrid = newGrid
@@ -940,6 +980,8 @@ Calculate energy:
 >             then oldEn + fromIntegral (2 * c * d)
 >             else oldEn
 >
+>     newEn2 = newEn * newEn
+>
 >     v = mcGrid u
 >
 >     p = expDvT V.! (4 + c * d)
@@ -959,7 +1001,8 @@ Calculate energy:
 >     je = gridSize * i + ((j + 1) `mod` gridSize)
 >     jw = gridSize * i + ((j - 1) `mod` gridSize)
 
->
+A warm start but we could try a cold start with all spins up.
+
 > testData :: Int -> V.Vector (Int, Int, Double)
 > testData m =
 >   V.fromList $
@@ -980,6 +1023,7 @@ Calculate energy:
 >                          , mcMAvg          = 0.0
 >                          , mcEnergy        = energy trialGrid
 >                          , mcEAvg          = 0.0
+>                          , mcEAvg2         = 0.0
 >                          , mcCount         = 0
 >                          , mcNumSamples    = 0
 >                          , mcGrid          = trialGrid
@@ -1010,20 +1054,26 @@ Calculate energy:
 >
 > xs :: [Double]
 > xs = getTemps 4.0 0.5 100
+>
 > newGrids :: [McState]
 > newGrids = map (\t -> trial trialInitState t (testData nitt)) xs
 >
 > main :: IO ()
 > main = do print "Magnetization"
 >
->           -- renderableToPNGFile (errChart xs mcMAvg trial trialInitState testData nitt)
->           --                     500 500 "diagrams/Magnetism.png"
->           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/exampleGrid.png"
->                      , DiagramLoopOpts False Nothing 0)
->                      (example :: Diagram B R2)
->           mainRender (DiagramOpts (Just 500) (Just 500) "diagrams/vectorGrid.png"
->                      , DiagramLoopOpts False Nothing 0)
->                      ((chessBoard' 10 trialGrid) :: Diagram B R2)
+>           let rs = parMap rpar (\x -> trial trialInitState x (testData nitt)) xs
+>
+>           -- sinusoid1 = plot_lines_values .~ [[ (x, mcMAvg $
+>           --                                         trial trialInitState x (testData nitt))
+>           --                                   | x <- xs]]
+>
+>           renderableToFile (FileOptions (500, 500) PNG)
+>                            (errChart xs rs mcEAvg)
+>                            "diagrams/Energy.png"
+>           renderableToFile (FileOptions (500, 500) PNG)
+>                            (errChart xs rs (abs . mcMAvg))
+>                            "diagrams/Magnetism.png"
+>           print "Done"
 
 > testData' :: Int -> V.Vector (Int, Int, Double)
 > testData' m =

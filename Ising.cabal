@@ -34,5 +34,6 @@ executable Ising
                        repa >=3.2 && <3.3,
                        template-haskell >=2.8 && <2.9,
                        HUnit >=1.2 && <1.3,
-                       tasty >=0.4 && <0.5
+                       tasty >=0.4 && <0.5,
+                       parallel >= 3.2 && < 3.3
   default-language:    Haskell2010
