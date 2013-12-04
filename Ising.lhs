@@ -70,7 +70,7 @@ ferromagnetism.
 ```{.dia width='500'}
 import Diagrams
 import Ising
-dia = isingGrid 10 trialGrid
+dia = isingGrid 10 initWarmGrid
 ```
 
 On the other hand, the physics and the Monte Carlo method used to
@@ -163,24 +163,20 @@ Pragmas and imports to which only the over-enthusiastic reader need pay attentio
 FIXME: End of interlude
 
 > module Ising (
->        --   example
->        {- , -} energy
+>          energy
+>        , magnetization
 >        , McState(..)
 >        , thinN
->        , nitt
+>        , nItt
 >        , expDv
 >        , tCrit
 >        , singleUpdate
->        , magnetization
->        , testData
->        , trialInitState
+>        , randomUpdates
+>        , initState
 >        , trial
->        , trialGrid
->        , getTemps
->        , xs
->        , newGrids
+>        , initWarmGrid
+>        , temps
 >        , main
->        , testData'
 >        ) where
 >
 > import Diagrams ( errChart
@@ -907,8 +903,8 @@ As discussed above we sample every *thinN* iterations, a technique known as "thi
 
 The total number of iterations per Monte Carlo run.
 
-> nitt :: Int
-> nitt = 1000000
+> nItt :: Int
+> nItt = 1000000
 
 There are only a very limited number of energy changes that can occur
 for each spin flip. Rather the recalculate the energy changes for
@@ -939,48 +935,55 @@ dia = eFlipD [  0,  1,  0, -1,  1,  1,  0,  1, 0]
 >   where
 >     f n | odd n = 0.0
 >     f n         = exp (((fromIntegral (8 - n)) - 4.0) * 2.0 / t)
->
+
+The most important function is the single step update of the Markov
+chain. We take an *Int* representing the amount of thinning we wish to
+perform, the vector of pre-calculated changes of the Boltzmann
+distribution (FIXME: more explanation required above), the current
+state, a value representing the randomly chosen co-ordinates of the
+grid element that will be updated and a value sampled from the uniform
+distribution which will decide whether the spin at the co-ordinates
+will be updated.
+
 > singleUpdate :: Int -> V.Vector Double -> McState -> (Int, Int, Double) -> McState
 > singleUpdate thinN expDvT u (i, j, r) =
->   McState { mcMagnetization = newMag
->           , mcMAvg =
->             if (mcCount u) `mod` thinN == 0
->             then mcMAvg u + newMag
->             else mcMAvg u
->           , mcEnergy = newEn
->           , mcEAvg =
->             if (mcCount u) `mod` thinN == 0
->             then mcEAvg u + newEn
->             else mcEAvg u
->           , mcEAvg2 =
->             if (mcCount u) `mod` thinN == 0
->             then mcEAvg2 u + newEn2
->             else mcEAvg2 u
->           , mcCount = mcCount u + 1
->           , mcNumSamples =
->             if (mcCount u) `mod` thinN == 0
->             then mcNumSamples u + 1
->             else mcNumSamples u
->           , mcGrid = newGrid
+>   McState { mcMagnetization = magNew
+>           , mcMAvg          = mcMAvgNew
+>           , mcEnergy        = enNew
+>           , mcEAvg          = mcEAvgNew
+>           , mcEAvg2         = mcEAvg2New
+>           , mcCount         = mcCount u + 1
+>           , mcNumSamples    = mcNumSamplesNew
+>           , mcGrid          = gridNew
 >           }
 >   where
->     newGrid = if p > r
->               then V.modify (\v -> M.write v jc (-c)) v
->               else v
 >
->     oldMag = mcMagnetization u
+>     (gridNew, magNew, enNew) =
+>       if p > r
+>       then ( V.modify (\v -> M.write v jc (-c)) v
+>            , magOld - fromIntegral (2 * c)
+>            , enOld + fromIntegral (2 * c * d)
+>            )
+>       else (v, magOld, enOld)
 >
->     newMag = if p > r
->               then oldMag - fromIntegral (2 * c)
->               else oldMag
+>     magOld = mcMagnetization u
+>     enOld  = mcEnergy u
 >
->     oldEn = mcEnergy u
+>     (mcMAvgNew, mcEAvgNew, mcEAvg2New, mcNumSamplesNew) =
+>       if (mcCount u) `mod` thinN == 0
+>       then ( mcMAvgOld       + magNew
+>            , mcEAvgOld       + enNew
+>            , mcEAvg2Old      + enNew2
+>            , mcNumSamplesOld + 1
+>            )
+>       else (mcMAvgOld, mcEAvgOld, mcEAvg2Old, mcNumSamplesOld)
 >
->     newEn = if p > r
->             then oldEn + fromIntegral (2 * c * d)
->             else oldEn
+>     enNew2 = enNew * enNew
 >
->     newEn2 = newEn * newEn
+>     mcMAvgOld       = mcMAvg u
+>     mcEAvgOld       = mcEAvg u
+>     mcEAvg2Old      = mcEAvg2 u
+>     mcNumSamplesOld = mcNumSamples u
 >
 >     v = mcGrid u
 >
@@ -1001,10 +1004,11 @@ dia = eFlipD [  0,  1,  0, -1,  1,  1,  0,  1, 0]
 >     je = gridSize * i + ((j + 1) `mod` gridSize)
 >     jw = gridSize * i + ((j - 1) `mod` gridSize)
 
-A warm start but we could try a cold start with all spins up.
+In order to drive our Markov chain we need a supply of random
+positions and samples from the uniform distribution.
 
-> testData :: Int -> V.Vector (Int, Int, Double)
-> testData m =
+> randomUpdates :: Int -> V.Vector (Int, Int, Double)
+> randomUpdates m =
 >   V.fromList $
 >   evalState (replicateM m x)
 >   (pureMT 2)
@@ -1013,24 +1017,27 @@ A warm start but we could try a cold start with all spins up.
 >            c <- sample (uniform (0 :: Int)    (gridSize - 1))
 >            v <- sample (uniform (0 :: Double)            1.0)
 >            return (r, c, v)
->
-> trial :: McState -> Double -> V.Vector (Int, Int, Double) -> McState
-> trial s t = V.foldl (singleUpdate 1 (expDv t)) s
->
-> trialInitState :: McState
-> trialInitState = McState { mcMagnetization = fromIntegral $
->                                              magnetization trialGrid
+
+To get things going, we need an initial state.
+
+> initState :: McState
+> initState = McState { mcMagnetization = fromIntegral $
+>                                              magnetization initWarmGrid
 >                          , mcMAvg          = 0.0
->                          , mcEnergy        = energy trialGrid
+>                          , mcEnergy        = energy initWarmGrid
 >                          , mcEAvg          = 0.0
 >                          , mcEAvg2         = 0.0
 >                          , mcCount         = 0
 >                          , mcNumSamples    = 0
->                          , mcGrid          = trialGrid
+>                          , mcGrid          = initWarmGrid
 >                         }
->
-> trialGrid :: V.Vector Int
-> trialGrid = V.fromList $ concat $ initGridL
+
+We use a warm grid, that is one that was randomly generated from a
+binomial distribution with $p = 0.5$. We could start from a cold grid
+e.g. one with all spins pointing up.
+
+> initWarmGrid :: V.Vector Int
+> initWarmGrid = V.fromList $ concat $ initGridL
 >   where
 >     initGridL = [ [-1, -1,  1, -1, -1, -1, -1,  1, -1, -1]
 >                 , [ 1,  1, -1,  1, -1,  1,  1, -1,  1, -1]
@@ -1043,53 +1050,51 @@ A warm start but we could try a cold start with all spins up.
 >                 , [ 1, -1,  1, -1, -1, -1, -1,  1,  1, -1]
 >                 , [-1, -1,  1,  1, -1, -1,  1,  1, -1,  1]
 >                 ]
->
-> getTemps :: Double -> Double -> Int -> [Double]
-> getTemps h l n = [ m * x + c |
->                    w <- [1..n],
->                    let x = fromIntegral w ]
+
+We will want to run the simulation over a range of temperatures in
+order to determine where the phase transition occurs.
+
+> temps :: [Double]
+> temps = getTemps 4.0 0.5 100
 >   where
->     m = (h - l) / (fromIntegral n - 1)
->     c = l - m
+>     getTemps :: Double -> Double -> Int -> [Double]
+>     getTemps h l n = [ m * x + c |
+>                        w <- [1..n],
+>                        let x = fromIntegral w ]
+>       where
+>         m = (h - l) / (fromIntegral n - 1)
+>         c = l - m
 >
-> xs :: [Double]
-> xs = getTemps 4.0 0.5 100
->
-> newGrids :: [McState]
-> newGrids = map (\t -> trial trialInitState t (testData nitt)) xs
->
+> trial :: McState -> Double -> V.Vector (Int, Int, Double) -> McState
+> trial s t = V.foldl (singleUpdate 1 (expDv t)) s
+
+
 > main :: IO ()
-> main = do print "Magnetization"
+> main = do print "Start"
 >
->           let rs = parMap rpar (\x -> trial trialInitState x (testData nitt)) xs
->
->           -- sinusoid1 = plot_lines_values .~ [[ (x, mcMAvg $
->           --                                         trial trialInitState x (testData nitt))
->           --                                   | x <- xs]]
+>           let rs = parMap rpar (\x -> trial initState x (randomUpdates nItt)) temps
 >
 >           renderableToFile (FileOptions (500, 500) PNG)
->                            (errChart xs rs mcEAvg)
+>                            (errChart temps rs mcEAvg)
 >                            "diagrams/Energy.png"
 >           renderableToFile (FileOptions (500, 500) PNG)
->                            (errChart xs rs (abs . mcMAvg))
+>                            (errChart temps rs (abs . mcMAvg))
 >                            "diagrams/Magnetism.png"
+>
 >           print "Done"
 
-> testData' :: Int -> V.Vector (Int, Int, Double)
-> testData' m =
->   V.fromList $
->   evalState (replicateM m x)
->   (pureMT 1)
->   where
->     x = do r <- sample (uniform (0 :: Int)    (gridSize - 1))
->            c <- sample (uniform (0 :: Int)    (gridSize - 1))
->            v <- sample (uniform (0 :: Double)           1.0)
->            return (r, c, v)
->
 
 ```{.dia width='500'}
 dia = image "diagrams/Magnetism.png" 1.0 1.0
 ```
+
+Performance and Parallelism
+---------------------------
+
+~~~~ { .shell }
+ghc -O2 Ising.lhs -threaded -o Ising -package-db=.cabal-sandbox/x86_64-osx-ghc-7.6.2-packages.conf.d/ -main-is Ising
+~~~~
+
 
 Bibliography and Resources
 --------------------------
