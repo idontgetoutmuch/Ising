@@ -55,7 +55,8 @@ the updates are not deterministic but are random with the randomness
 selecting which cell gets updated as well as whether it gets
 updated. Thus we cannot update all the cells in parallel as would
 happen if we used repa. The reader only interested in this abstraction
-can go straight to the implementation.
+can go straight to the implementation (after finishing this
+introduction).
 
 The diagram below shows a 2 dimensional grid of cells. Each cell can
 either be in an (spin) up state or (spin) down state as indicated by
@@ -112,7 +113,8 @@ Where
  * The notation $\langle i, j\rangle$ means we sum over all the
 nearest neighbours in the lattice;
 
- * $H$ is the applied magnetic field (note we use E for the Hamiltonian);
+ * $H$ is the applied magnetic field (note we use E for the
+Hamiltonian), for all of this article we will assume this to be $0$;
 
  * The range of each index is $1 \ldots M$ where $N = M \times M$ is
 the total number of atoms;
@@ -160,8 +162,6 @@ Pragmas and imports to which only the over-enthusiastic reader need pay attentio
 > {-# LANGUAGE TypeFamilies                  #-}
 > {-# LANGUAGE NoMonomorphismRestriction     #-}
 
-FIXME: End of interlude
-
 > module Ising (
 >          energy
 >        , magnetization
@@ -173,12 +173,15 @@ FIXME: End of interlude
 >        , singleUpdate
 >        , randomUpdates
 >        , initState
->        , trial
+>        , multiUpdate
 >        , initWarmGrid
 >        , temps
 >        , main
 >        ) where
->
+
+We put all of our code for the diagrams in this blog post in a
+separate module to avoid clutter.
+
 > import Diagrams ( errChart
 >                 )
 
@@ -188,12 +191,13 @@ FIXME: End of interlude
 > import Data.Random.Source.PureMT
 > import Data.Random
 > import Control.Monad.State
->
+
 > import Control.Parallel.Strategies
 
-FIXME: Can we get rid of this import?
-
 > import Graphics.Rendering.Chart.Backend.Cairo
+
+> gridSize :: Int
+> gridSize = 10
 
 The Boltzmann Distribution
 ==========================
@@ -278,6 +282,50 @@ where we have defined the temperature to be $T = 1 / k_B\beta$ with
 $k_B$ being Boltzmann's constant and $Z(T)$ is another normalizing
 constant.
 
+Specific Heat
+-------------
+
+Using the Boltzmann distribution we can calculate the average energy of the system
+
+$$
+\begin{aligned}
+\langle E \rangle &=  \sum_\sigma E(\sigma) \mathbb{P}(\sigma) \\
+                  &=  \sum_\sigma E(\sigma) \frac{\exp(-E(\sigma) / k_B T)}{Z} \\
+                  &= -\frac{1}{Z} \frac{\partial Z}{\partial \beta} \\
+                  &=  \frac{\partial}{\partial \beta} \log Z
+\end{aligned}
+$$
+
+where it is understood that $Z$ depends on $T$.
+
+If we let $C_V$ be the specific heat per particle (at constant volume) then
+
+$$
+\begin{aligned}
+NC_V &= \frac{\partial \langle E\rangle}{\partial T} \\
+     &= \frac{\partial \langle E\rangle}{\partial \beta} \frac{\partial \beta}{\partial T} \\
+     &= -\frac{1}{k_B T^2} \frac{\partial \langle E\rangle}{\partial \beta} \\
+     &= -\frac{1}{k_B T^2} \frac{\partial^2 \log Z}{\partial \beta^2} \\
+     &= -\frac{1}{k_B T^2} \frac{\partial}{\partial \beta} \sum_\sigma E(\sigma) \frac{\exp(-E(\sigma) / k_B T)}{Z} \\
+     &= -\frac{1}{k_B T^2} \Bigg[\frac{\big(\sum_\sigma E(\sigma) \exp(-E(\sigma) / k_B T)\big)^2}{Z^2} + \frac{\sum_\sigma -E^2(\sigma) \exp(-E(\sigma) / k_B T)}{Z}\Bigg]
+\end{aligned}
+$$
+
+We know that
+
+$$
+\Delta E^2 \triangleq \langle (E - \langle E \rangle)^2 \rangle = \langle E^2 \rangle - \langle E \rangle^2
+$$
+
+So we can write
+
+$$
+\Delta E^2 = k_BT^2C_V
+$$
+
+so if we can estimate the energy and the square of the energy then we
+can estimate the specific heat.
+
 Monte Carlo Estimation
 ======================
 
@@ -319,11 +367,8 @@ below demonstrates.
 more efficient representations can be implemented. We also have to
 calculate offsets into the vector given a point's grid co-ordinates.]
 
-> gridSize :: Int
-> gridSize = 10
->
-> energy :: (Fractional a, Integral a1, M.Unbox a1) => V.Vector a1 -> a
-> energy v = -0.5 * (fromIntegral $ V.sum energyAux)
+> energy :: (Fractional a, Integral b, M.Unbox b) => a -> V.Vector b -> a
+> energy j v = -0.5 * j * (fromIntegral $ V.sum energyAux)
 >   where
 >
 >     energyAux = V.generate l f
@@ -359,7 +404,7 @@ samples $(\sigma^{(i)})_{0 \le i \lt R}$ uniformly from the state
 space. We could then use
 
 $$
-Z_R = \sum_0^{R-1} P^*(\sigma^{(i)})
+Z_R \triangleq \sum_0^{R-1} \exp (-\beta\sigma_i)
 $$
 
 to estimate e.g. the magnetization
@@ -371,18 +416,18 @@ $$
 by
 
 $$
-\widehat{\langle M \rangle} = \sum_{i=0}^{R-1} M(\sigma) \frac{exp(-\beta E(\sigma(i)))}{Z(T)}
+\widehat{\langle M \rangle} = \sum_{i=0}^{R-1} M(\sigma) \frac{exp(-\beta E(\sigma(i)))}{Z_R}
 $$
 
 
 However we know from statistical physics that systems with large
 numbers of particles will occupy a small portion of the state space
-with any significant probability.  And according to [@MacKay:itp], a
-high dimensional distribution is often concentrated on small region of
-the state space known as its typical set $T$ whose volume is given by
-$|T| \approx 2^H$ where $H$ is the entropy of the (Boltzmann)
-distribution which for ease of exposition we temporarily denote by
-$P$.
+with any significant probability.  And according to [@MacKay:itp
+Chapter 29], a high dimensional distribution is often concentrated on
+small region of the state space known as its typical set $T$ whose
+volume is given by $|T| \approx 2^H$ where $H$ is the (Shannon)
+entropy of the (Boltzmann) distribution which for ease of exposition
+we temporarily denote by $P$.
 
 $$
 H = -\sum_\sigma P(\sigma)\log_2(P(\sigma))
@@ -405,7 +450,7 @@ H \approx \sum_\sigma \frac{1}{2^N}\log_2 2^N = N
 $$
 
 We can do a bit better than this. At high temperatures, $\beta J \ll
-1$ and taking $B = 0$
+1$ and taking $H = 0$ (as we have been assuming all along)
 
 $$
 \begin{aligned}
@@ -550,7 +595,7 @@ $$
 Taking $J = 1$
 
 > tCrit :: Double
-> tCrit = 2.0 / log (1.0 + sqrt 2.0)
+> tCrit = 2.0 * j / log (1.0 + sqrt 2.0) where j = 1
 
     [ghci]
     tCrit
@@ -610,8 +655,9 @@ $$
 
 $\blacksquare$
 
-We can describe a Markov chain by its transition matrix $P$ and initial
-distribution $\pi_0_i = \mathbb{P} (X_0 = i)$.
+We can describe a Markov chain by its transition matrix $P$ and
+initial distribution $\pi_0(i) = \mathbb{P} (X_0 = i)$. In the case we
+say a stochastic process $(X_n)_{n \ge 0}$ is Markov $(\pi_0, P)$.
 
 We need to be able to discuss properties of Markov chains such as
 stationarity, irreducibility, recurrence and ergodicity.
@@ -630,6 +676,8 @@ $\blacksquare$
 One question one might ask is whether a given Markov chain has such a
 distribution. For example, for the following chain, any distribution
 is a stationary distribution. That is $\pi P = \pi$ for any $\pi$.
+
+Any distribution is a stationary distribution for the unit transition matrix.
 
 $$
 \begin{bmatrix}
@@ -658,7 +706,7 @@ Write ${\mathbb P}_i(A) = {\mathbb P}(A \, | \, X_0 = i)$
 We say that $i$ **leads to** $j$ and write $i \rightarrow j$ if
 
 $$
-{\mathbb P}_i(X_n = j \, \text{for some n}) \gt 0
+{\mathbb P}_i(X_n = j \, \text{eventually}) \gt 0
 $$
 
 **Theorem** For distinct states $i$ and $j$, the following are equivalent:
@@ -702,10 +750,10 @@ is irreducible.
 Recurrence
 ----------
 
-Let $X_n$ be a Markov chain. A state $i$ is **recurrent** if
+Let $(X_n)_{n \ge 0}$ be a Markov chain. A state $i$ is **recurrent** if
 
 $$
-{\mathbb P} (X_n = i \, \text{i.o.}) = 1
+{\mathbb P} (X_n = i \, \text{infinitely often}) = 1
 $$
 
 The **first passage time** is defined as
@@ -1018,13 +1066,13 @@ positions and samples from the uniform distribution.
 >            v <- sample (uniform (0 :: Double)            1.0)
 >            return (r, c, v)
 
-To get things going, we need an initial state.
+To get things going, we need an initial state. We can $J = 1$.
 
 > initState :: McState
 > initState = McState { mcMagnetization = fromIntegral $
 >                                              magnetization initWarmGrid
 >                          , mcMAvg          = 0.0
->                          , mcEnergy        = energy initWarmGrid
+>                          , mcEnergy        = energy 1.0 initWarmGrid
 >                          , mcEAvg          = 0.0
 >                          , mcEAvg2         = 0.0
 >                          , mcCount         = 0
@@ -1065,27 +1113,33 @@ order to determine where the phase transition occurs.
 >         m = (h - l) / (fromIntegral n - 1)
 >         c = l - m
 >
-> trial :: McState -> Double -> V.Vector (Int, Int, Double) -> McState
-> trial s t = V.foldl (singleUpdate 1 (expDv t)) s
+> multiUpdate :: McState -> Double -> V.Vector (Int, Int, Double) -> McState
+> multiUpdate s t = V.foldl (singleUpdate 100 (expDv t)) s
 
+> magFn :: McState -> Double
+> magFn s = abs (mcMAvg s / (fromIntegral $ mcCount s))
+>
+> enFn :: McState -> Double
+> enFn s  = mcEAvg s / (fromIntegral $ mcCount s)
 
 > main :: IO ()
 > main = do print "Start"
 >
->           let rs = parMap rpar (\x -> trial initState x (randomUpdates nItt)) temps
+>           let rs = parMap rpar f temps
+>                 where
+>                   f t = multiUpdate initState t (randomUpdates nItt)
 >
 >           renderableToFile (FileOptions (500, 500) PNG)
->                            (errChart temps rs mcEAvg)
->                            "diagrams/Energy.png"
->           renderableToFile (FileOptions (500, 500) PNG)
->                            (errChart temps rs (abs . mcMAvg))
->                            "diagrams/Magnetism.png"
+>                            (errChart temps rs magFn enFn)
+>                            "diagrams/MagAndEnergy.png"
 >
+>           print $ map magFn rs
+>           print $ map enFn rs
 >           print "Done"
 
 
 ```{.dia width='500'}
-dia = image "diagrams/Magnetism.png" 1.0 1.0
+dia = image "diagrams/MagAndEnergy.png" 1.0 1.0
 ```
 
 Performance and Parallelism

@@ -86,15 +86,20 @@ isingEnergyFlip vs = if aLen == 9
     f x n | n `elem` [0, 2, 6, 8] = Left  x
     f x n                         = Right x
 
-errChart xs rs mcMAvg = toRenderable layout
+errChart xs rs f g = toRenderable layout
   where
-    sinusoid1 = plot_lines_values .~ [zipWith (\x y -> (x, mcMAvg y)) xs rs]
-              $ plot_lines_style  . line_color .~ opaque blue
-              $ plot_lines_title .~ "error"
-              $ def
+    p1 = plot_lines_values .~ [zipWith (\x y -> (x, f y)) xs rs]
+         $ plot_lines_style  . line_color .~ opaque blue
+         $ plot_lines_title .~ "Magnetization"
+         $ def
+
+    p2 = plot_lines_values .~ [zipWith (\x y -> (x, g y)) xs rs]
+         $ plot_lines_style  . line_color .~ opaque red
+         $ plot_lines_title .~ "Energy"
+         $ def
 
     layout = layout_title .~ "Floating Point Error"
-           $ layout_plots .~ [toPlot sinusoid1]
+           $ layout_plots .~ [toPlot p1, toPlot p2]
            $ layout_y_axis .~ errorAxis
            $ layout_x_axis .~ stepSizeAxis
            $ def
@@ -102,5 +107,5 @@ errChart xs rs mcMAvg = toRenderable layout
     errorAxis = laxis_title .~ "Minus log to base 2 of the error"
               $ def
 
-    stepSizeAxis = laxis_title .~ "Minus log to base 2 of the step size"
+    stepSizeAxis = laxis_title .~ "Temperature"
                  $ def
