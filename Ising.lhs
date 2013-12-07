@@ -6,6 +6,18 @@
 bibliography: Ising.bib
 ---
 
+```{.dia height='300'}
+import Diagrams
+import Ising
+dia = hcat [ isingGrid 20 (mcGrid $ multiUpdate initState 3.0 (randomUpdates 100))
+           , strutX 2.0
+           , isingGrid 20 (mcGrid $ multiUpdate initState 3.0 (randomUpdates 1000))
+           , strutX 2.0
+           , isingGrid 20 (mcGrid $ multiUpdate initState 3.0 (randomUpdates 10000))
+           ]
+
+```
+
 Introduction
 ============
 
@@ -68,10 +80,10 @@ parameters, the spins in the cells line up (not entirely as there is
 always some randomness). It is this lining up that gives rise to
 ferromagnetism.
 
-```{.dia width='500'}
+```{.dia height='200'}
 import Diagrams
 import Ising
-dia = isingGrid 10 initWarmGrid
+dia = isingGrid 8 (exampleGrid 8)
 ```
 
 On the other hand, the physics and the Monte Carlo method used to
@@ -105,7 +117,7 @@ neighbouring atoms depends on whether spins are parallel or
 anti-parallel. We can thus write the Hamiltonian in the form:
 
 $$
-E = -J\sum_{\langle i, j\rangle} \sigma_i \sigma_j - H\sum_k \sigma_k
+E = -J\sum_{\langle i, j\rangle} \sigma_i \sigma_j - B\sum_k \sigma_k
 $$
 
 Where
@@ -113,7 +125,7 @@ Where
  * The notation $\langle i, j\rangle$ means we sum over all the
 nearest neighbours in the lattice;
 
- * $H$ is the applied magnetic field (note we use E for the
+ * $B$ is the applied magnetic field (note we use E for the
 Hamiltonian), for all of this article we will assume this to be $0$;
 
  * The range of each index is $1 \ldots M$ where $N = M \times M$ is
@@ -161,12 +173,15 @@ Pragmas and imports to which only the over-enthusiastic reader need pay attentio
 
 > {-# LANGUAGE TypeFamilies                  #-}
 > {-# LANGUAGE NoMonomorphismRestriction     #-}
+> {-# LANGUAGE TypeOperators                 #-}
+> {-# LANGUAGE ScopedTypeVariables           #-}
 
 > module Ising (
 >          energy
 >        , magnetization
 >        , McState(..)
 >        , thinN
+>        , gridSize
 >        , nItt
 >        , expDv
 >        , tCrit
@@ -174,16 +189,17 @@ Pragmas and imports to which only the over-enthusiastic reader need pay attentio
 >        , randomUpdates
 >        , initState
 >        , multiUpdate
->        , initWarmGrid
 >        , temps
+>        , initColdGrid
+>        , exampleGrid
+>        , notAperiodics
 >        , main
 >        ) where
 
 We put all of our code for the diagrams in this blog post in a
 separate module to avoid clutter.
 
-> import Diagrams ( errChart
->                 )
+> import Diagrams
 
 > import qualified Data.Vector.Unboxed as V
 > import qualified Data.Vector.Unboxed.Mutable as M
@@ -196,8 +212,30 @@ separate module to avoid clutter.
 
 > import Graphics.Rendering.Chart.Backend.Cairo
 
+> import Data.Array.Repa hiding ( map, (++), zipWith )
+> import Data.Array.Repa.Algorithms.Matrix
+
+> import PrettyPrint ()
+
 > gridSize :: Int
-> gridSize = 10
+> gridSize = 20
+>
+> exampleGrid :: Int -> V.Vector Int
+> exampleGrid gridSize = V.fromList $ f (gridSize * gridSize)
+>   where
+>     f m =
+>       evalState (replicateM m (sample (uniform (0 :: Int) (1 :: Int)) >>=
+>                                \n -> return $ 2*n - 1))
+>       (pureMT 1)
+
+> couplingConstant :: Double
+> couplingConstant = 1.0
+>
+> kB :: Double
+> kB = 1.0
+>
+> mu :: Double
+> mu = 1.0
 
 The Boltzmann Distribution
 ==========================
@@ -289,7 +327,7 @@ Using the Boltzmann distribution we can calculate the average energy of the syst
 
 $$
 \begin{aligned}
-\langle E \rangle &=  \sum_\sigma E(\sigma) \mathbb{P}(\sigma) \\
+\langle E \rangle &\triangleq  \sum_\sigma E(\sigma) \mathbb{P}(\sigma) \\
                   &=  \sum_\sigma E(\sigma) \frac{\exp(-E(\sigma) / k_B T)}{Z} \\
                   &= -\frac{1}{Z} \frac{\partial Z}{\partial \beta} \\
                   &=  \frac{\partial}{\partial \beta} \log Z
@@ -302,7 +340,7 @@ If we let $C_V$ be the specific heat per particle (at constant volume) then
 
 $$
 \begin{aligned}
-NC_V &= \frac{\partial \langle E\rangle}{\partial T} \\
+NC_V &\triangleq \frac{\partial \langle E\rangle}{\partial T} \\
      &= \frac{\partial \langle E\rangle}{\partial \beta} \frac{\partial \beta}{\partial T} \\
      &= -\frac{1}{k_B T^2} \frac{\partial \langle E\rangle}{\partial \beta} \\
      &= -\frac{1}{k_B T^2} \frac{\partial^2 \log Z}{\partial \beta^2} \\
@@ -361,7 +399,10 @@ Z(T) = \sum_\sigma \exp(-E(\sigma) / k_B T)
 $$
 
 We can evaluate the energy for one state easily enough as the Haskell
-below demonstrates.
+below demonstrates. Note that we use so-called periodic boundary
+conditions which means our grid is actually a torus with no
+boundaries. In other words, we wrap the top of the grid on to the
+bottom and the left of the grid on to the right.
 
 [As an aside, we represent each state by a *Vector* of *Int*. No doubt
 more efficient representations can be implemented. We also have to
@@ -450,7 +491,7 @@ H \approx \sum_\sigma \frac{1}{2^N}\log_2 2^N = N
 $$
 
 We can do a bit better than this. At high temperatures, $\beta J \ll
-1$ and taking $H = 0$ (as we have been assuming all along)
+1$ and taking $B = 0$ (as we have been assuming all along)
 
 $$
 \begin{aligned}
@@ -782,7 +823,7 @@ $\blacksquare$
 A state $i$ is **aperiodic** if $p^{(n)}_{ii} \gt 0$ for *all*
 sufficiently large $n$.
 
-Example:
+For example, the chain with this transition matrix is *not* periodic:
 
 $$
 \begin{bmatrix}
@@ -791,7 +832,19 @@ $$
  \end{bmatrix}
 $$
 
-FIXME: Put Haskell example here with ghci for the first few terms
+as running the following program segment shows with the chain
+flip-flopping between the two states.
+
+> notAperiodic0 :: Array U DIM2 Double
+> notAperiodic0 = fromListUnboxed (Z :. (2 :: Int) :. (2 :: Int)) ([0,1,1,0] :: [Double])
+> notAperiodics :: [Array U DIM2 Double]
+> notAperiodics = scanl mmultS notAperiodic0 (replicate 4 notAperiodic0)
+
+    [ghci]
+    import Ising
+    import PrettyPrint
+    import Text.PrettyPrint.HughesPJClass
+    pPrint notAperiodics
 
 **Theorem** Let $P$ be irreducible and aperiodic and suppose that $P$ has an
 invariant distribution $\pi$. Let $\pi_0$ be any distribution (on the state space???). Suppose that $(X_n)_{n \ge 0}$ is Markov $(\pi_0, P)$ then
@@ -914,7 +967,7 @@ specified to provide estimates of values of interest.
 
 Two techniques that seem to be widespread in practical applications
 are *burn in* and *thinning*. Although neither have strong theoretical
-justification ("a thousand lemmings can't be wrong"), we follow these
+justification ("a thousand lemmings can't be wrong"), we follow the
 practices in our implementation.
 
 * "Burn in" means run the chain for a certain number of iterations
@@ -926,10 +979,11 @@ every iteration to prevent autocorrelation.
 Haskell Implementation
 ----------------------
 
-Calculating the total magnetization is trivial.
+Calculating the total magnetization is trivial; we just add up all the
+spins and multiply by the magnetic moment of the electron.
 
-> magnetization :: (Num a, M.Unbox a) => V.Vector a -> a
-> magnetization = V.sum
+> magnetization :: (Num a, Integral b, M.Unbox b) => a -> V.Vector b -> a
+> magnetization mu = (mu *) . fromIntegral . V.sum
 
 We keep the state of the Monte Carlo simulation in a record.
 
@@ -955,11 +1009,12 @@ The total number of iterations per Monte Carlo run.
 > nItt = 1000000
 
 There are only a very limited number of energy changes that can occur
-for each spin flip. Rather the recalculate the energy changes for
+for each spin flip. Rather the recalculate the value of the Boltzmann distribution for
 every spin flip we can store these in a *Vector*.
 
 For example if spin is up and *all* its surrounding spins are up and
-it flips to down then energy change is $8J$.
+it flips to down then energy change is $8J$ and the corresponding
+value of the Boltzmann distribution is $\exp -8J\beta$.
 
 ```{.dia width='500'}
 import Diagrams
@@ -978,20 +1033,19 @@ dia = eFlipD [  0,  1,  0, -1,  1,  1,  0,  1, 0]
 
 ```
 
-> expDv :: Double -> V.Vector Double
-> expDv t = V.generate 9 f
+> expDv :: Double -> Double -> Double -> V.Vector Double
+> expDv kB j t = V.generate 9 f
 >   where
 >     f n | odd n = 0.0
->     f n         = exp (((fromIntegral (8 - n)) - 4.0) * 2.0 / t)
+>     f n         = exp (j * ((fromIntegral (8 - n)) - 4.0) * 2.0 / (kB * t))
 
 The most important function is the single step update of the Markov
 chain. We take an *Int* representing the amount of thinning we wish to
 perform, the vector of pre-calculated changes of the Boltzmann
-distribution (FIXME: more explanation required above), the current
-state, a value representing the randomly chosen co-ordinates of the
-grid element that will be updated and a value sampled from the uniform
-distribution which will decide whether the spin at the co-ordinates
-will be updated.
+distribution, the current state, a value representing the randomly
+chosen co-ordinates of the grid element that will be updated and a
+value sampled from the uniform distribution which will decide whether
+the spin at the co-ordinates will be updated.
 
 > singleUpdate :: Int -> V.Vector Double -> McState -> (Int, Int, Double) -> McState
 > singleUpdate thinN expDvT u (i, j, r) =
@@ -1010,7 +1064,7 @@ will be updated.
 >       if p > r
 >       then ( V.modify (\v -> M.write v jc (-c)) v
 >            , magOld - fromIntegral (2 * c)
->            , enOld + fromIntegral (2 * c * d)
+>            , enOld + couplingConstant * fromIntegral (2 * c * d)
 >            )
 >       else (v, magOld, enOld)
 >
@@ -1059,45 +1113,29 @@ positions and samples from the uniform distribution.
 > randomUpdates m =
 >   V.fromList $
 >   evalState (replicateM m x)
->   (pureMT 2)
+>   (pureMT 1)
 >   where
 >     x = do r <- sample (uniform (0 :: Int)    (gridSize - 1))
 >            c <- sample (uniform (0 :: Int)    (gridSize - 1))
 >            v <- sample (uniform (0 :: Double)            1.0)
 >            return (r, c, v)
 
-To get things going, we need an initial state. We can $J = 1$.
+To get things going, we need an initial state. We start with a cold
+grid, that is, one with all spins pointing down.
 
+> initColdGrid :: V.Vector Int
+> initColdGrid = V.fromList $ replicate (gridSize * gridSize) (-1)
+>
 > initState :: McState
-> initState = McState { mcMagnetization = fromIntegral $
->                                              magnetization initWarmGrid
+> initState = McState { mcMagnetization      = magnetization mu initColdGrid
 >                          , mcMAvg          = 0.0
->                          , mcEnergy        = energy 1.0 initWarmGrid
+>                          , mcEnergy        = energy couplingConstant initColdGrid
 >                          , mcEAvg          = 0.0
 >                          , mcEAvg2         = 0.0
 >                          , mcCount         = 0
 >                          , mcNumSamples    = 0
->                          , mcGrid          = initWarmGrid
+>                          , mcGrid          = initColdGrid
 >                         }
-
-We use a warm grid, that is one that was randomly generated from a
-binomial distribution with $p = 0.5$. We could start from a cold grid
-e.g. one with all spins pointing up.
-
-> initWarmGrid :: V.Vector Int
-> initWarmGrid = V.fromList $ concat $ initGridL
->   where
->     initGridL = [ [-1, -1,  1, -1, -1, -1, -1,  1, -1, -1]
->                 , [ 1,  1, -1,  1, -1,  1,  1, -1,  1, -1]
->                 , [ 1, -1, -1, -1, -1,  1, -1, -1, -1, -1]
->                 , [-1, -1,  1, -1,  1, -1,  1,  1, -1,  1]
->                 , [ 1,  1,  1, -1,  1, -1, -1,  1,  1,  1]
->                 , [ 1, -1, -1,  1, -1, -1, -1, -1,  1,  1]
->                 , [ 1,  1,  1, -1, -1,  1, -1, -1,  1, -1]
->                 , [ 1, -1, -1, -1,  1,  1, -1, -1,  1, -1]
->                 , [ 1, -1,  1, -1, -1, -1, -1,  1,  1, -1]
->                 , [-1, -1,  1,  1, -1, -1,  1,  1, -1,  1]
->                 ]
 
 We will want to run the simulation over a range of temperatures in
 order to determine where the phase transition occurs.
@@ -1112,34 +1150,88 @@ order to determine where the phase transition occurs.
 >       where
 >         m = (h - l) / (fromIntegral n - 1)
 >         c = l - m
->
+
+Now we can run a chain at a given temperature.
+
 > multiUpdate :: McState -> Double -> V.Vector (Int, Int, Double) -> McState
-> multiUpdate s t = V.foldl (singleUpdate 100 (expDv t)) s
+> multiUpdate s t = V.foldl (singleUpdate thinN (expDv kB couplingConstant t)) s
+
+For example running the model at a temperature of $3.0$ for 100, 1000
+and 10,000 steps respectively shows disorder growing.
+
+```{.dia height='300'}
+import Diagrams
+import Ising
+dia = hcat [ isingGrid 20 (mcGrid $ multiUpdate initState 3.0 (randomUpdates 100))
+           , strutX 2.0
+           , isingGrid 20 (mcGrid $ multiUpdate initState 3.0 (randomUpdates 1000))
+           , strutX 2.0
+           , isingGrid 20 (mcGrid $ multiUpdate initState 3.0 (randomUpdates 10000))
+           ]
+```
+
+On the other hand running the model at a temperature of $2.0$ shows a
+very limited disorder.
+
+```{.dia height='300'}
+import Diagrams
+import Ising
+dia = hcat [ isingGrid 20 (mcGrid $ multiUpdate initState 2.0 (randomUpdates 100))
+           , strutX 2.0
+           , isingGrid 20 (mcGrid $ multiUpdate initState 2.0 (randomUpdates 1000))
+           , strutX 2.0
+           , isingGrid 20 (mcGrid $ multiUpdate initState 2.0 (randomUpdates 10000))
+           ]
+```
+
+For any given state we can extract the magnetization, the energy and
+the square of the energy.
 
 > magFn :: McState -> Double
-> magFn s = abs (mcMAvg s / (fromIntegral $ mcCount s))
+> magFn s = abs (mcMAvg s / (fromIntegral $ mcNumSamples s))
+>
+> magFnNorm :: McState -> Double
+> magFnNorm s = magFn s / (fromIntegral (gridSize * gridSize))
 >
 > enFn :: McState -> Double
-> enFn s  = mcEAvg s / (fromIntegral $ mcCount s)
+> enFn s  = mcEAvg s / (fromIntegral $ mcNumSamples s)
+>
+> enFnNorm :: McState -> Double
+> enFnNorm s = enFn s / (fromIntegral (gridSize * gridSize))
+
+> en2Fn :: McState -> Double
+> en2Fn s  = mcEAvg2 s / (fromIntegral $ mcNumSamples s)
+
+And we can also calculate the mean square error.
+
+> meanSqErr :: McState -> Double
+> meanSqErr s = e2 - e*e
+>   where
+>     e = enFn s
+>     e2 = en2Fn s
+>
+> meanSqErrNorm :: McState -> Double
+> meanSqErrNorm s = meanSqErr s / (fromIntegral (gridSize * gridSize))
+
+Finally we can run our simulation in parallel using *parMap* rather
+than *map* (this is the one line change required to get parallelism).
 
 > main :: IO ()
 > main = do print "Start"
 >
 >           let rs = parMap rpar f temps
->                 where
->                   f t = multiUpdate initState t (randomUpdates nItt)
+>                     where
+>                       f t = multiUpdate initState t (randomUpdates nItt)
 >
 >           renderableToFile (FileOptions (500, 500) PNG)
->                            (errChart temps rs magFn enFn)
->                            "diagrams/MagAndEnergy.png"
+>                            (errChart temps rs magFnNorm enFnNorm meanSqErrNorm)
+>                           "diagrams/MagnetismAndEnergy.png"
 >
->           print $ map magFn rs
->           print $ map enFn rs
 >           print "Done"
 
 
 ```{.dia width='500'}
-dia = image "diagrams/MagAndEnergy.png" 1.0 1.0
+dia = image "diagrams/MagnetismAndEnergy.png" 1.0 1.0
 ```
 
 Performance and Parallelism
@@ -1149,6 +1241,35 @@ Performance and Parallelism
 ghc -O2 Ising.lhs -threaded -o Ising -package-db=.cabal-sandbox/x86_64-osx-ghc-7.6.2-packages.conf.d/ -main-is Ising
 ~~~~
 
+~~~~ { .shell }
+time ./Ising +RTS -N1
+"Start"
+"Done"
+
+real	0m14.879s
+user	0m14.508s
+sys	0m0.369s
+
+time ./Ising +RTS -N2
+"Start"
+"Done"
+
+real	0m8.269s
+user	0m15.521s
+sys	0m0.389s
+
+time ./Ising +RTS -N4
+"Start"
+"Done"
+
+real	0m5.444s
+user	0m19.386s
+sys	0m0.414s
+~~~~
 
 Bibliography and Resources
 --------------------------
+
+The sources for this article can be downloaded
+[here](https://github.com/idontgetoutmuch/Ising).
+

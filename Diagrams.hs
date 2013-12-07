@@ -86,7 +86,7 @@ isingEnergyFlip vs = if aLen == 9
     f x n | n `elem` [0, 2, 6, 8] = Left  x
     f x n                         = Right x
 
-errChart xs rs f g = toRenderable layout
+errChart xs rs f g h = toRenderable layout
   where
     p1 = plot_lines_values .~ [zipWith (\x y -> (x, f y)) xs rs]
          $ plot_lines_style  . line_color .~ opaque blue
@@ -98,14 +98,19 @@ errChart xs rs f g = toRenderable layout
          $ plot_lines_title .~ "Energy"
          $ def
 
-    layout = layout_title .~ "Floating Point Error"
-           $ layout_plots .~ [toPlot p1, toPlot p2]
+    p3 = plot_lines_values .~ [zipWith (\x y -> (x, h y / x^2)) xs rs]
+         $ plot_lines_style  . line_color .~ opaque green
+         $ plot_lines_title .~ "Specific Heat"
+         $ def
+
+    layout = layout_title .~ "Ferromagnetism (Ising Model)"
+           $ layout_plots .~ [toPlot p1, toPlot p2, toPlot p3]
            $ layout_y_axis .~ errorAxis
            $ layout_x_axis .~ stepSizeAxis
            $ def
 
-    errorAxis = laxis_title .~ "Minus log to base 2 of the error"
+    errorAxis = laxis_title .~ "Magnetization / (mu N^2), Energy / (J N^2), Specific Heat / (k_B N^2)"
               $ def
 
-    stepSizeAxis = laxis_title .~ "Temperature"
+    stepSizeAxis = laxis_title .~ "Temperature * k_B / J"
                  $ def
